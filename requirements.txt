@@ -3,3 +3,5 @@ google-generativeai
 pandas
 fpdf
 matplotlib
+gspread
+oauth2client
