@@ -289,7 +289,7 @@ elif menu == "Nova Análise":
                     with st.spinner("🤖 Lendo Proposta..."):
                         try:
                             genai.configure(api_key=API_KEY)
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            model = genai.GenerativeModel('gemini-2.5-flash')
                             
                             prompt = """
                             Analise este documento.
@@ -479,3 +479,4 @@ elif menu == "Histórico":
                     pdf = gerar_pdf_bytes(dados_rec, registro['status'], registro['obs_final'])
                     st.download_button("📄 Re-gerar PDF", pdf, f"Relatorio.pdf", "application/pdf")
                 except: st.error("Erro ao processar dados antigos.")
+
