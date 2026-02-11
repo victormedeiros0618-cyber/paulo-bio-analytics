@@ -272,39 +272,89 @@ elif menu == "Nova Análise":
         col.markdown(f"<div style='border-bottom: 4px solid {cor}; padding-bottom: 5px; text-align: center;'>{texto}</div>", unsafe_allow_html=True)
     st.write("") 
 
+       # --- PASSO 1: PROPOSTA (CORREÇÃO DO ERRO FALSO-POSITIVO) ---
     if st.session_state.step == 1:
-        with st.container(border=True):
-            st.subheader("📝 Dados da Proposta")
-            c1, c2 = st.columns([1, 1.5])
-            with c1:
-                st.info("Faça upload da Proposta")
-                uploaded = st.file_uploader("PDF da Proposta", type="pdf", key="up1")
-                if uploaded and st.button("Extrair Dados com IA"):
+        st.markdown("### 📝 Dados da Proposta")
+        
+        c1, c2 = st.columns([1, 1.5])
+        
+        with c1:
+            st.info("Faça upload da Proposta ou Ficha Cadastral")
+            uploaded = st.file_uploader("PDF da Proposta", type="pdf", key="up1")
+            
+            if uploaded and st.button("Extrair Dados com IA"):
+                if not API_KEY: 
+                    st.error("⚠️ API Key não configurada.")
+                else:
                     with st.spinner("🤖 Lendo Proposta..."):
                         try:
                             genai.configure(api_key=API_KEY)
-                            model = genai.GenerativeModel('gemini-2.5-flash')
-                            prompt = """Analise este documento. Extraia JSON: { "empresa": "", "cnpj": "", "imovel": "", "aluguel": 0.0, "tempo": "", "garantia": "" }"""
-                            res = model.generate_content([{"mime_type": "application/pdf", "data": uploaded.getvalue()}, prompt])
-                            text_clean = res.text.replace("```json", "").replace("```", "").strip()
-                            inicio = text_clean.find('{')
-                            fim = text_clean.rfind('}') + 1
-                            st.session_state.dados.update(json.loads(text_clean[inicio:fim]))
-                            st.rerun()
-                        except: st.error("Erro ao ler.")
-            with c2:
-                d = st.session_state.dados
-                empresa = st.text_input("Cliente / Empresa", d.get("empresa", ""))
-                cnpj = st.text_input("CNPJ / CPF", d.get("cnpj", ""))
-                imovel = st.text_input("Imóvel de Interesse", d.get("imovel", ""))
-                col_val, col_prazo = st.columns(2)
-                aluguel = col_val.number_input("Aluguel Mensal (R$)", float(d.get("aluguel") or 0.0))
-                tempo = col_prazo.text_input("Tempo de Contrato", d.get("tempo", ""))
-                garantia = st.text_input("Garantia Oferecida", d.get("garantia", ""))
-                if st.button("Confirmar e Avançar >"):
-                    st.session_state.dados.update({"empresa": empresa, "cnpj": cnpj, "imovel": imovel, "aluguel": aluguel, "tempo": tempo, "garantia": garantia})
-                    st.session_state.step = 2
-                    st.rerun()
+                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            
+                            prompt = """
+                            Analise este documento.
+                            Extraia e retorne APENAS um JSON válido (sem markdown```json):
+                            { 
+                                "empresa": "Nome do Cliente", 
+                                "cnpj": "CNPJ apenas números e pontuação", 
+                                "imovel": "Endereço completo", 
+                                "aluguel": 0.0, 
+                                "tempo": "Prazo em meses",
+                                "garantia": "Tipo de garantia"
+                            }
+                            """
+                            
+                            res = model.generate_content([
+                                {"mime_type": "application/pdf", "data": uploaded.getvalue()},
+                                prompt
+                            ])
+                            
+                            # Limpeza Power (Remove tudo que não é JSON)
+                            texto = res.text
+                            inicio = texto.find('{')
+                            fim = texto.rfind('}') + 1
+                            
+                            if inicio != -1 and fim != -1:
+                                json_str = texto[inicio:fim]
+                                dados_extraidos = json.loads(json_str)
+                                st.session_state.dados.update(dados_extraidos)
+                                st.rerun() # Recarrega a página para mostrar os dados
+                            else:
+                                st.warning("A IA leu, mas o formato veio estranho. Verifique os campos ao lado.")
+                                
+                        except Exception as e:
+                            # Se os dados foram preenchidos, ignora o erro visual
+                            if st.session_state.dados.get('empresa'):
+                                st.rerun()
+                            else:
+                                st.error(f"Erro na leitura: {e}")
+        
+        with c2:
+            st.write("Preencha ou corrija os dados:")
+            d = st.session_state.dados
+            
+            # Formulário
+            empresa = st.text_input("Cliente / Empresa", d.get("empresa", ""))
+            cnpj = st.text_input("CNPJ / CPF", d.get("cnpj", ""))
+            imovel = st.text_input("Imóvel de Interesse", d.get("imovel", ""))
+            
+            col_val, col_prazo = st.columns(2)
+            aluguel = col_val.number_input("Aluguel Mensal (R$)", float(d.get("aluguel") or 0.0))
+            tempo = col_prazo.text_input("Tempo de Contrato", d.get("tempo", ""))
+            
+            garantia = st.text_input("Garantia Oferecida", d.get("garantia", ""))
+            
+            if st.button("Confirmar e Avançar >", type="primary"):
+                st.session_state.dados.update({
+                    "empresa": empresa, 
+                    "cnpj": cnpj, 
+                    "imovel": imovel,
+                    "aluguel": aluguel,
+                    "tempo": tempo,
+                    "garantia": garantia
+                })
+                st.session_state.step = 2
+                st.rerun()
 
     elif st.session_state.step == 2:
         with st.container(border=True):
