@@ -11,7 +11,7 @@ import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. CONFIGURAÇÃO E ESTILO (V5.1) ---
+# --- 1. CONFIGURAÇÃO E ESTILO (V5.2 FINAL) ---
 st.set_page_config(
     page_title="Paulo Bio | Analytics", 
     layout="wide", 
@@ -209,13 +209,14 @@ with st.sidebar:
         st.rerun()
 
 # ==============================================================================
-# TELA: NOVA ANÁLISE (FLUXO V5.1)
+# TELA: NOVA ANÁLISE (FLUXO V5.2)
 # ==============================================================================
 if menu == "Nova Análise":
     passos = ["0. Contrato", "1. Proposta", "2. Serasa", "3. Contábil", "4. Decisão"]
     cols = st.columns(5)
     for i, col in enumerate(cols):
-        cor = COR_PRIMARIA if i &lt;= st.session_state.step else "#E0E0E0"
+        # CORREÇÃO AQUI: Substituído &lt;= por <=
+        cor = COR_PRIMARIA if i <= st.session_state.step else "#E0E0E0"
         texto = f"**{passos[i]}**" if i == st.session_state.step else passos[i]
         col.markdown(f"<div style='border-bottom: 4px solid {cor}; text-align: center; font-size: 0.8rem;'>{texto}</div>", unsafe_allow_html=True)
     st.write("")
@@ -289,7 +290,8 @@ if menu == "Nova Análise":
             garantia = st.text_input("Garantia", d.get("garantia", ""))
             
             c_b1, c_b2 = st.columns(2)
-            if c_b1.button("&lt; Voltar"): st.session_state.step = 0; st.rerun()
+            # CORREÇÃO AQUI: Substituído &lt; por <
+            if c_b1.button("< Voltar"): st.session_state.step = 0; st.rerun()
             if c_b2.button("Avançar >"):
                 st.session_state.dados.update({"imovel": imovel, "aluguel": aluguel, "tempo": tempo, "garantia": garantia})
                 st.session_state.step = 2
@@ -317,10 +319,11 @@ if menu == "Nova Análise":
                 c_m2.metric("Risco", d.get("risco"))
                 st.write(f"**Restrições:** {d.get('restricoes')}")
             c_b1, c_b2 = st.columns(2)
-            if c_b1.button("&lt; Voltar"): st.session_state.step = 1; st.rerun()
+            # CORREÇÃO AQUI: Substituído &lt; por <
+            if c_b1.button("< Voltar"): st.session_state.step = 1; st.rerun()
             if c_b2.button("Avançar >"): st.session_state.step = 3; st.rerun()
 
-    # --- PASSO 3: CONTÁBIL (CORRIGIDO) ---
+    # --- PASSO 3: CONTÁBIL (Mantido) ---
     elif st.session_state.step == 3:
         st.markdown("### 📊 Auditoria Contábil (Multi-Mês)")
         st.info("Dica: Faça upload de Balanços Anuais E Balancetes Mensais (ex: 05.2025) juntos.")
@@ -333,7 +336,6 @@ if menu == "Nova Análise":
                     genai.configure(api_key=API_KEY)
                     model = genai.GenerativeModel('gemini-2.5-flash')
                     
-                    # Prompt Ninja para ler múltiplos arquivos
                     prompt = f"""
                     Atue como Auditor Contábil Sênior.
                     Analise TODOS os documentos fornecidos. Alguns podem ser anuais, outros mensais (balancetes).
@@ -358,7 +360,6 @@ if menu == "Nova Análise":
                     parts.append(prompt)
                     
                     res = model.generate_content(parts)
-                    # CORREÇÃO AQUI:
                     text = res.text.replace("```json", "").replace("```", "").strip()
                     json_data = json.loads(text[text.find('{'):text.rfind('}')+1])
                     st.session_state.dados.update(json_data)
@@ -377,7 +378,8 @@ if menu == "Nova Análise":
             st.write(d.get("analise_executiva"))
             
         c_b1, c_b2 = st.columns(2)
-        if c_b1.button("&lt; Voltar"): st.session_state.step = 2; st.rerun()
+        # CORREÇÃO AQUI: Substituído &lt; por <
+        if c_b1.button("< Voltar"): st.session_state.step = 2; st.rerun()
         if c_b2.button("Conclusão >"): st.session_state.step = 4; st.rerun()
 
     # --- PASSO 4: DECISÃO (Mantido) ---
@@ -414,7 +416,8 @@ if menu == "Nova Análise":
                     st.download_button("⬇️ PDF", pdf, "Relatorio.pdf", "application/pdf")
                 except: st.error("Erro PDF")
         
-        if st.button("&lt; Voltar para Revisão"): st.session_state.step = 3; st.rerun()
+        # CORREÇÃO AQUI: Substituído &lt; por <
+        if st.button("< Voltar para Revisão"): st.session_state.step = 3; st.rerun()
 
 # ==============================================================================
 # TELA: DASHBOARD (Mantido)
