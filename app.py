@@ -11,7 +11,7 @@ import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. CONFIGURAÇÃO E ESTILO (V5.0) ---
+# --- 1. CONFIGURAÇÃO E ESTILO (V5.1) ---
 st.set_page_config(
     page_title="Paulo Bio | Analytics", 
     layout="wide", 
@@ -209,7 +209,7 @@ with st.sidebar:
         st.rerun()
 
 # ==============================================================================
-# TELA: NOVA ANÁLISE (FLUXO V5.0)
+# TELA: NOVA ANÁLISE (FLUXO V5.1)
 # ==============================================================================
 if menu == "Nova Análise":
     passos = ["0. Contrato", "1. Proposta", "2. Serasa", "3. Contábil", "4. Decisão"]
@@ -275,7 +275,7 @@ if menu == "Nova Análise":
                         model = genai.GenerativeModel('gemini-2.5-flash')
                         prompt = """Extraia JSON: { "imovel": "", "aluguel": 0.0, "tempo": "", "garantia": "" }"""
                         res = model.generate_content([{"mime_type": "application/pdf", "data": uploaded.getvalue()}, prompt])
-                        text = res.text.repl```json", "").replace("```", "").strip()
+                        text = res.text.replace("```json", "").replace("```", "").strip()
                         st.session_state.dados.update(json.loads(text[text.find('{'):text.rfind('}')+1]))
                         st.rerun()
                     except: st.warning("Leitura parcial.")
@@ -320,7 +320,7 @@ if menu == "Nova Análise":
             if c_b1.button("&lt; Voltar"): st.session_state.step = 1; st.rerun()
             if c_b2.button("Avançar >"): st.session_state.step = 3; st.rerun()
 
-    # --- PASSO 3: CONTÁBIL (MELHORADO - LÊ MÚLTIPLOS ARQUIVOS) ---
+    # --- PASSO 3: CONTÁBIL (CORRIGIDO) ---
     elif st.session_state.step == 3:
         st.markdown("### 📊 Auditoria Contábil (Multi-Mês)")
         st.info("Dica: Faça upload de Balanços Anuais E Balancetes Mensais (ex: 05.2025) juntos.")
@@ -358,6 +358,7 @@ if menu == "Nova Análise":
                     parts.append(prompt)
                     
                     res = model.generate_content(parts)
+                    # CORREÇÃO AQUI:
                     text = res.text.replace("```json", "").replace("```", "").strip()
                     json_data = json.loads(text[text.find('{'):text.rfind('}')+1])
                     st.session_state.dados.update(json_data)
