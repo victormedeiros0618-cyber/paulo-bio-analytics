@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import time
 from fpdf import FPDF
-import matplotlib.pyplot as plt
 import tempfile
 import os
 import gspread
@@ -1512,3 +1511,4 @@ elif menu == "Configurações":
     st.markdown("## ⚙️ Configurações do Sistema")
     with st.container(border=True):
         st.markdown("Módulo em desenvolvimento. Aqui você poderá ajustar parâmetros da IA e limites de crédito no futuro.")
+
