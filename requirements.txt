@@ -1,7 +1,9 @@
 streamlit
-google-generativeai
+google-genai
 pandas
 fpdf
-matplotlib
 gspread
 oauth2client
+streamlit-option-menu
+plotly
+PyPDF2
