@@ -335,7 +335,9 @@ def str_to_float(val):
 
 def gerar_pdf_bytes(dados, decisao):
     def limpa(texto):
-        return str(texto).encode('latin-1', 'replace').decode('latin-1')
+        # Muda de 'replace' para 'ignore' (apaga o emoji silenciosamente)
+        # O .strip() remove o espaço vazio que sobra antes da palavra
+        return str(texto).encode('latin-1', 'ignore').decode('latin-1').strip()
 
     def safe_float(valor):
         try:
@@ -545,7 +547,9 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.cell(170, 6, limpa("RESULTADO DA ANÁLISE"), align='C', ln=True)
     
     pdf.set_font("Arial", 'B', 20)
-    pdf.cell(170, 10, limpa(decisao.upper()), align='C', ln=True)
+    # Remove os emojis e espaços manualmente antes de mandar pro PDF
+    decisao_limpa = decisao.replace("🟢", "").replace("🟠", "").replace("🔴", "").strip()
+    pdf.cell(170, 10, limpa(decisao_limpa.upper()), align='C', ln=True)
     
     pdf.set_font("Arial", 'I', 9)
     pdf.set_text_color(80, 80, 80)
@@ -1698,4 +1702,3 @@ elif menu == "Configurações":
     st.markdown("## ⚙️ Configurações do Sistema")
     with st.container(border=True):
         st.markdown("Módulo em desenvolvimento. Aqui você poderá ajustar parâmetros da IA e limites de crédito no futuro.")
-
