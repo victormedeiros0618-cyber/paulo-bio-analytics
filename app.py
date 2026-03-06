@@ -1191,14 +1191,21 @@ if menu == "Nova Análise":
 
         # 2. Campo Oficial do Advogado (Editável, vai pro PDF)
         st.markdown("Parecer Jurídico")
-        st.caption("Copie trechos da IA acima ou escreva seu parecer final aqui.")
-        parecer_oficial = st.text_area(
+        st.caption("Copie trechos da IA acima ou escreva seu parecer final aqui. ⚠️ **DICA:** Após editar, clique fora da caixa de texto para o sistema registrar a alteração antes de gerar o PDF.")
+        
+        # Correção: Gerenciamento de estado blindado para o Text Area
+        if "input_parecer" not in st.session_state:
+            st.session_state.input_parecer = st.session_state.dados.get("parecer_oficial", st.session_state.dados.get("parecer_final", ""))
+
+        st.text_area(
             "Texto do Parecer", 
-            value=st.session_state.dados.get("parecer_oficial", st.session_state.dados.get("parecer_final", "")),
             height=300,
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="input_parecer"
         )
-        st.session_state.dados["parecer_oficial"] = parecer_oficial
+        
+        # Garante que o dicionário receba o texto atualizado do widget instantaneamente
+        st.session_state.dados["parecer_oficial"] = st.session_state.input_parecer
 
         st.divider()
 
@@ -1220,7 +1227,6 @@ if menu == "Nova Análise":
                 st.session_state.step = 6
                 st.rerun()
         with c_b2:
-            # Gera o PDF com os dados atualizados
             pdf_bytes = gerar_pdf_bytes(st.session_state.dados, decisao)
             
             st.download_button(
@@ -1229,22 +1235,17 @@ if menu == "Nova Análise":
                 file_name=f"Relatorio_Risco_{st.session_state.dados.get('empresa', 'Cliente')}.pdf",
                 mime="application/pdf",
                 type="primary",
-                width="stretch"  
+                width="stretch"
             )
             
         st.write("") # Respiro
         
         # Botão para salvar na planilha (Alimenta o Dashboard Global)
-        # CORRIGIDO: Substituiu o width="stretch"
         if st.button("Salvar Análise no Histórico", width="stretch"):
             with st.spinner("Salvando dados de forma segura no Google Sheets..."):
                 try:
-                    # 1. Chama a função para salvar na planilha
                     salvar_dados_planilha(st.session_state.dados, decisao)
-                    
-                    # 2. MÁGICA DO CACHE: Limpa a memória para o Dashboard atualizar na hora!
                     st.cache_data.clear()
-                    
                     st.success("✅ Análise salva com sucesso no histórico! O Dashboard foi atualizado.")
                 except Exception as e:
                     st.error(f"Erro ao salvar na planilha: {e}")
