@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import time
 from fpdf import FPDF
-import matplotlib.pyplot as plt
 import tempfile
 import os
 import gspread
