@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import time
 from fpdf import FPDF
+import matplotlib.pyplot as plt
 import tempfile
 import os
 import gspread
@@ -510,11 +511,27 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.ln(5)
     row("Comprometimento:", f"{dados.get('comprometimento_renda', '0')}% (Aluguel+IPTU sobre Receita)")
 
-    # --- 4. CAPACIDADE DE GARANTIA ---
-    title("4. Capacidade de Garantia (Sócios)", 40)
-    row("Renda Anual (IR):", dados.get('renda_anual', '-'))
-    row("Aplicações:", dados.get('aplicacoes_financeiras', '-'))
-    row("Bens Imóveis:", dados.get('bens_imoveis', '-'))
+       # --- 4. CAPACIDADE DE GARANTIA ---
+    garantia_tipo = str(dados.get('garantia', '')).lower()
+    
+    if "fiador" in garantia_tipo:
+        # Se a garantia for Fiador, traz a análise gerada no Passo 1
+        title("4. Capacidade de Garantia (Fiador)", 40)
+        pdf.set_font("Arial", '', 10)
+        parecer_fiador = dados.get('parecer_fiador', 'Análise do fiador não informada ou pendente.')
+        pdf.multi_cell(0, 5, limpa(parecer_fiador), align='J')
+    else:
+        # Se não for Fiador, traz a análise dos Sócios (Passo 6)
+        title("4. Capacidade de Garantia (Sócios)", 40)
+        
+        # Se existir o novo dossiê consolidado do Passo 6, usa ele. Se não, usa o modelo antigo.
+        if dados.get('resumo_patrimonial'):
+            pdf.set_font("Arial", '', 10)
+            pdf.multi_cell(0, 5, limpa(dados.get('resumo_patrimonial')), align='J')
+        else:
+            row("Renda Anual (IR):", dados.get('renda_anual', '-'))
+            row("Aplicações:", dados.get('aplicacoes_financeiras', '-'))
+            row("Bens Imóveis:", dados.get('bens_imoveis', '-'))
 
     # --- 5. PARECER E VEREDITO ---
     # Exige 70mm de espaço livre para não cortar o banner no meio
@@ -688,37 +705,45 @@ if menu == "Nova Análise":
         col.markdown(f"<div style='font-size: 0.75rem; text-align: center; padding-bottom: 5px; border-bottom: 4px solid {cor}; font-weight: {peso};'>{passos[i]}</div>", unsafe_allow_html=True)
     st.write("")
 
-      # --- PASSO 0: CONTRATO SOCIAL ---
+    # --- PASSO 0: CONTRATO SOCIAL ---
     if st.session_state.step == 0:
+        d = st.session_state.dados # Atalho para facilitar
         
-        # Título padronizado com Bootstrap Icons
         st.markdown("""
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
         <h3 style="color: #2C3E50; font-weight: 700; margin-bottom: 20px;">
-            <i class="bi bi-file-earmark-person-fill" style="color: #F47920; margin-right: 8px;"></i> Contrato Social
+            <i class="bi bi-file-earmark-person-fill" style="color: #F47920; margin-right: 8px;"></i> Contrato Social e Aditivos
         </h3>
         """, unsafe_allow_html=True)
         
         c1, c2 = st.columns([1, 2])
         with c1:
             with st.container(border=True):
-                uploaded = st.file_uploader("Upload Contrato Social (PDF)", type="pdf", key="up0")
+                # AJUSTE 1: accept_multiple_files=True
+                uploaded = st.file_uploader("Upload Contrato e Aditivos (PDFs)", type="pdf", accept_multiple_files=True, key="up0")
                 if uploaded and st.button("Extrair Dados Societários"):
-                    with st.spinner("Analisando Contrato..."):
+                    with st.spinner("Analisando Documentos..."):
                         try:
-                            prompt = """Extraia APENAS JSON válido, valores exatos como texto: 
+                            # AJUSTE 2: Prompt atualizado para aditivos
+                            prompt = """Analise os documentos societários (Contrato Social e eventuais Aditivos) em ordem cronológica.
+                            Extraia o quadro societário ATUALIZADO e um resumo das alterações.
+                            Extraia APENAS JSON válido, valores exatos como texto: 
                             { 
                                 "empresa": "", 
                                 "cnpj": "", 
                                 "endereco_empresa": "Extrair o endereço completo da sede da empresa. Se não achar, retorne 'Não informado'",
                                 "data_abertura": "", 
                                 "capital_social": "", 
-                                "socios_participacao": "", 
-                                "administrador": "" 
+                                "socios_participacao": "Quadro societário final/atualizado", 
+                                "administrador": "",
+                                "informacoes_adicionais": "Breve resumo cronológico das alterações contratuais (ex: entrada/saída de sócios, aumento de capital). Se não houver aditivos, escreva 'Documento original sem aditivos identificados.'"
                             }"""
+                            parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
+                            parts.append(prompt)
+                            
                             res = gemini_client.models.generate_content(
                                 model='gemini-2.5-flash',
-                                contents=[types.Part.from_bytes(data=uploaded.getvalue(), mime_type='application/pdf'), prompt]
+                                contents=parts
                             )
                             st.session_state.dados.update(extrair_json_seguro(res.text))
                             st.rerun()
@@ -732,28 +757,25 @@ if menu == "Nova Análise":
                 capital = c_cap.text_input("Capital Social", d.get("capital_social", ""))
                 socios = st.text_area("Quadro Societário (%)", d.get("socios_participacao", ""))
                 admin = st.text_input("Administrador", d.get("administrador", ""))
+                foto_sede = st.text_input("Endereço da Sede", d.get("foto_sede", d.get("endereco_empresa", "")))
                 
-                # Label preparado para a integração com a API do Google Street View
-                foto_sede = st.text_input("Endereço da Sede", d.get("foto_sede", ""))
+                # AJUSTE 2: Novo campo na UI
+                info_adicionais = st.text_area("Informações Adicionais (Resumo de Aditivos)", d.get("informacoes_adicionais", ""))
+                st.session_state.dados["informacoes_adicionais"] = info_adicionais
                 
-                st.write("") # Respiro visual
-                st.write("") # Respiro visual extra
+                st.write("") 
+                st.write("") 
                 
-                # Coluna 1 (Vazia), Coluna 2 (Espaço gigante), Coluna 3 (Avançar)
                 c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])
-                
-                # A c_b1 fica sem nada dentro
-                
                 with c_b2:
-                    # Removido o use_container_width (o CSS fará o trabalho)
                     if st.button("Avançar"): 
                         st.session_state.step = 1
                         st.rerun()
 
-       # --- PASSO 1: PROPOSTA ---
+        # --- PASSO 1: PROPOSTA ---
     elif st.session_state.step == 1:
+        d = st.session_state.dados
         
-        # Importa a mesma biblioteca de ícones do menu lateral e cria o título moderno
         st.markdown("""
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
         <h3 style="color: #2C3E50; font-weight: 700; margin-bottom: 20px;">
@@ -768,15 +790,19 @@ if menu == "Nova Análise":
                 if uploaded and st.button("Extrair Proposta"):
                     with st.spinner("Lendo..."):
                         try:
+                            # AJUSTE 3: Novos campos no prompt
                             prompt = """Extraia APENAS JSON válido, valores exatos como texto: 
                             { 
                                 "pretendente": "", 
                                 "atividade": "", 
-                                "imovel": "Extrair EXATAMENTE o endereço do imóvel objeto da locação/negócio. REGRA CRÍTICA: NUNCA preencha com o endereço da própria empresa pretendente. Se o endereço do imóvel a ser alugado estiver em branco ou não for mencionado na proposta, retorne OBRIGATORIAMENTE a frase 'NÃO INFORMADO'.", 
+                                "imovel": "Extrair EXATAMENTE o endereço do imóvel objeto da locação. REGRA CRÍTICA: NUNCA preencha com o endereço da própria empresa pretendente. Se não achar, retorne 'NÃO INFORMADO'.", 
                                 "prazo": "", 
+                                "data_inicio": "Data de início da locação, se houver",
+                                "carencia": "Período de carência ou isenção, se houver",
                                 "aluguel": "Valor exato", 
                                 "iptu": "Valor exato", 
-                                "garantia": "" 
+                                "garantia": "Tipo de garantia (ex: Fiador, Seguro Fiança, Caução)",
+                                "condicoes_gerais": "Resumo de índices de reajuste, multas ou condições especiais"
                             }"""
                             res = gemini_client.models.generate_content(
                                 model='gemini-2.5-flash',
@@ -792,24 +818,69 @@ if menu == "Nova Análise":
                 pretendente = st.text_input("Pretendente", d.get("pretendente", d.get("empresa", "")))
                 atividade = st.text_input("Atividade a ser realizada", d.get("atividade", ""))
                 imovel = st.text_input("Endereço do Imóvel", d.get("imovel", ""))
-                prazo = st.text_input("Prazo", d.get("prazo", ""))
+                
+                c_p1, c_p2, c_p3 = st.columns(3)
+                prazo = c_p1.text_input("Prazo", d.get("prazo", ""))
+                data_inicio = c_p2.text_input("Data de Início", d.get("data_inicio", ""))
+                carencia = c_p3.text_input("Carência", d.get("carencia", ""))
+                
                 c_val1, c_val2 = st.columns(2)
                 aluguel = c_val1.text_input("Aluguel (R$)", d.get("aluguel", "0"))
                 iptu = c_val2.text_input("IPTU (R$)", d.get("iptu", "0"))
-                garantia = st.text_input("Garantia Proposta", d.get("garantia", ""))
                 
-                st.write("") # Respiro visual
-                st.write("") # Respiro visual extra                
-                # Coluna 1 (Voltar), Coluna 2 (Espaço vazio gigante), Coluna 3 (Avançar)
-                c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
-                with c_b1:
-                    if st.button("Voltar"): 
-                        st.session_state.step = 0 # Altere para o passo anterior correto
-                        st.rerun()         
-                with c_b2:
-                    if st.button("Avançar"): 
-                        st.session_state.step = 2 # Altere para o próximo passo correto
-                        st.rerun()
+                garantia = st.text_input("Garantia Proposta", d.get("garantia", ""))
+                condicoes = st.text_area("Condições Gerais (Reajustes/Multas)", d.get("condicoes_gerais", ""))
+                
+                # AJUSTE 3: Campo manual livre
+                info_gerais = st.text_area("Informações Gerais (Anotações Livres)", d.get("info_gerais_manuais", ""))
+                st.session_state.dados["info_gerais_manuais"] = info_gerais
+
+        # AJUSTE 4: Lógica dinâmica do Fiador
+        if "fiador" in str(d.get("garantia", "")).lower():
+            st.write("")
+            st.markdown("""
+            <h4 style="color: #2C3E50; font-weight: 600; margin-bottom: 10px;">
+                <i class="bi bi-person-bounding-box" style="color: #F47920; margin-right: 8px;"></i> Análise do Fiador
+            </h4>
+            """, unsafe_allow_html=True)
+            
+            cf1, cf2 = st.columns([1, 2])
+            with cf1:
+                with st.container(border=True):
+                    up_fiador = st.file_uploader("Upload Docs do Fiador (IR, Matrícula)", type="pdf", accept_multiple_files=True, key="up_fiador")
+                    if up_fiador and st.button("Analisar Capacidade do Fiador"):
+                        with st.spinner("Analisando Fiador..."):
+                            try:
+                                prompt_fiador = f"""
+                                Analise os documentos do fiador. O aluguel pretendido é R$ {d.get('aluguel', '0')}.
+                                Verifique a renda declarada e o patrimônio (imóveis). 
+                                Retorne APENAS um JSON válido:
+                                {{
+                                    "parecer_fiador": "Texto detalhando a renda, os bens do fiador e concluindo se ele tem capacidade financeira para garantir a locação."
+                                }}
+                                """
+                                parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in up_fiador]
+                                parts.append(prompt_fiador)
+                                res_fiador = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=parts)
+                                st.session_state.dados.update(extrair_json_seguro(res_fiador.text))
+                                st.rerun()
+                            except Exception as e: st.error(f"Erro: {e}")
+            with cf2:
+                with st.container(border=True):
+                    parecer_fiador = st.text_area("Parecer sobre o Fiador", d.get("parecer_fiador", ""), height=150)
+                    st.session_state.dados["parecer_fiador"] = parecer_fiador
+
+        st.write("") 
+        st.write("")                
+        c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
+        with c_b1:
+            if st.button("Voltar"): 
+                st.session_state.step = 0 
+                st.rerun()         
+        with c_b2:
+            if st.button("Avançar"): 
+                st.session_state.step = 2 
+                st.rerun()
 
     # --- PASSO 2: FICHA CADASTRAL ---
     elif st.session_state.step == 2:
@@ -861,16 +932,20 @@ if menu == "Nova Análise":
                         st.session_state.step = 3 # Altere para o próximo passo correto
                         st.rerun()
 
-    # --- PASSO 3: SERASA ---
+     # --- PASSO 3: SERASA ---
     elif st.session_state.step == 3:
+        d = st.session_state.dados
         
-        # Título padronizado com Bootstrap Icons
         st.markdown("""
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
         <h3 style="color: #2C3E50; font-weight: 700; margin-bottom: 20px;">
             <i class="bi bi-shield-lock-fill" style="color: #F47920; margin-right: 8px;"></i> Análise de Risco (Serasa)
         </h3>
         """, unsafe_allow_html=True)
+        
+        # AJUSTE 5: Trava de Divergência Visual
+        if d.get("alerta_divergencia_serasa"):
+            st.error(f"🚨 **ALERTA DE DIVERGÊNCIA DE DADOS:** {d.get('alerta_divergencia_serasa')}")
         
         c1, c2 = st.columns([1, 2])
         with c1:
@@ -879,43 +954,33 @@ if menu == "Nova Análise":
                 if uploaded and st.button("Mapear Pendências"):
                     with st.spinner("Analisando riscos e contágio..."):
                         try:
-                            # Prompt blindado contra o "sumiço dos zeros"
-                            prompt = """
-                            Atue como Analista de Risco. Analise os Serasas.
-                            ATENÇÃO CRÍTICA: Extraia os valores financeiros EXATAMENTE como estão no documento. NÃO remova zeros à direita e não arredonde.
+                            # AJUSTE 5: Prompt de Compliance
+                            prompt = f"""
+                            Atue como Analista de Risco. 
+                            REGRA DE COMPLIANCE: Estes documentos devem pertencer à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}) ou a seus sócios. Se os documentos principais forem de uma empresa totalmente diferente, preencha o campo 'alerta_divergencia_serasa' informando o erro. Se estiver correto, deixe vazio.
 
-                            Sua tarefa é extrair o Score, o Risco e criar um Resumo Analítico padronizado e estruturado.
-
-                            O campo "resumo_serasa" deve ser um texto claro e estruturado contendo obrigatoriamente os seguintes tópicos:
-
-                            1. PENDÊNCIAS FINANCEIRAS:
-                            - Possui pendências? (Sim/Não)
-                            - Que tipo e natureza? (Ex: Protesto, Cheque sem fundo, Pefin, Refin, Dívida Vencida, Falência)
-                            - Quais são os credores?
-                            - Qual o valor exato envolvido em cada pendência?
-                            - Qual a data de cada pendência?
-
-                            2. ANÁLISE CRUZADA (SÓCIOS E EMPRESAS):
-                            - Se o documento for PJ: Analise o quadro de sócios. Existe alguma sinalização de pendência apontada para os sócios? (Se sim, emita um alerta recomendando puxar o Serasa PF do sócio específico).
-                            - Se o documento for PF: Verifique se há sinalização de pendências nas empresas em que a pessoa figura como sócia (Se sim, emita um alerta recomendando puxar o Serasa PJ da empresa específica).
-
-                            3. PARTICIPAÇÕES SOCIETÁRIAS:
-                            - Indique a existência de eventuais outras empresas em que a PJ principal for sócia.
-                            - Indique se os sócios (PF ou PJ) possuem participação em outras empresas listadas no documento.
-
+                            Extraia os valores financeiros EXATAMENTE como estão. NÃO remova zeros à direita.
                             Retorne APENAS um JSON válido no seguinte formato:
-                            {
+                            {{
+                                "alerta_divergencia_serasa": "",
                                 "score": "Valor exato do score em texto",
                                 "risco": "Baixo/Médio/Alto",
-                                "resumo_serasa": "Texto estruturado seguindo rigorosamente os 3 tópicos acima. Use quebras de linha (\\n) para separar os tópicos e criar um padrão visual limpo para todas as análises."
-                            }
+                                "resumo_serasa": "1. PENDÊNCIAS FINANCEIRAS:
+                                - Possui pendências? (Sim/Não)
+                                - Que tipo e natureza? (Ex: Protesto, Cheque sem fundo, Pefin, Refin, Dívida Vencida, Falência)
+                                - Quais são os credores?
+                                - Qual o valor exato envolvido em cada pendência?
+                                - Qual a data de cada pendência?
+                                2. ANÁLISE CRUZADA: 
+                                - Se o documento for PJ: Analise o quadro de sócios. Existe alguma sinalização de pendência apontada para os sócios? (Se sim, emita um alerta recomendando puxar o Serasa PF do sócio específico).
+                                - Se o documento for PF: Verifique se há sinalização de pendências nas empresas em que a pessoa figura como sócia (Se sim, emita um alerta recomendando puxar o Serasa PJ da empresa específica).
+                                3. PARTICIPAÇÕES SOCIETÁRIAS:                            - Indique a existência de eventuais outras empresas em que a PJ principal for sócia.
+                                - Indique se os sócios (PF ou PJ) possuem participação em outras empresas listadas no documento."
+                            }}
                             """
                             parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
                             parts.append(prompt)
-                            res = gemini_client.models.generate_content(
-                                model='gemini-2.5-flash',
-                                contents=parts
-                            )
+                            res = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=parts)
                             st.session_state.dados.update(extrair_json_seguro(res.text))
                             st.rerun()
                         except Exception as e: st.error(f"Erro ao processar Serasa: {e}")
@@ -926,29 +991,32 @@ if menu == "Nova Análise":
                 risco_val = c_m2.text_input("Nível de Risco", d.get("risco", ""))
                 resumo_serasa = st.text_area("Mapeamento de Riscos (Restrições)", d.get("resumo_serasa", ""), height=250)
                 
-                st.write("") # Respiro visual
-                st.write("") # Respiro visual extra                
-                # Coluna 1 (Voltar), Coluna 2 (Espaço vazio gigante), Coluna 3 (Avançar)
+                st.write("") 
+                st.write("")               
                 c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
                 with c_b1:
                     if st.button("Voltar"): 
-                        st.session_state.step = 2 # Altere para o passo anterior correto
+                        st.session_state.step = 2 
                         st.rerun()         
                 with c_b2:
                     if st.button("Avançar"): 
-                        st.session_state.step = 4 # Altere para o próximo passo correto
+                        st.session_state.step = 4 
                         st.rerun()
 
-    # --- PASSO 4: CERTIDÕES ---
+   # --- PASSO 4: CERTIDÕES ---
     elif st.session_state.step == 4:
+        d = st.session_state.dados
         
-        # Título padronizado com Bootstrap Icons
         st.markdown("""
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
         <h3 style="color: #2C3E50; font-weight: 700; margin-bottom: 20px;">
             <i class="bi bi-scales" style="color: #F47920; margin-right: 8px;"></i> Certidões Jurídicas
         </h3>
         """, unsafe_allow_html=True)
+        
+        # AJUSTE 5: Trava de Divergência Visual
+        if d.get("alerta_divergencia_certidoes"):
+            st.error(f"🚨 **ALERTA DE DIVERGÊNCIA DE DADOS:** {d.get('alerta_divergencia_certidoes')}")
         
         c1, c2 = st.columns([1, 2])
         with c1:
@@ -957,13 +1025,17 @@ if menu == "Nova Análise":
                 if uploaded and st.button("Auditar Certidões"):
                     with st.spinner("Lendo certidões..."):
                         try:
-                            prompt = """Atue como Advogado. Analise as certidões. Extraia APENAS JSON válido: { "resumo_certidoes": "Texto resumindo apontamentos: Cível, Trabalhista, Federal, etc. Cite natureza, valor, data e se é polo ativo/passivo. Se não houver nada, escreva 'Nada Consta'." }"""
+                            prompt = f"""Atue como Advogado. 
+                            REGRA DE COMPLIANCE: Verifique se as certidões pertencem à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Se forem de terceiros não relacionados, preencha 'alerta_divergencia_certidoes'.
+                            
+                            Extraia APENAS JSON válido: 
+                            {{ 
+                                "alerta_divergencia_certidoes": "",
+                                "resumo_certidoes": "Texto resumindo apontamentos: Cível, Trabalhista, Federal, etc. Cite natureza, valor, data e se é polo ativo/passivo. Se não houver nada, escreva 'Nada Consta'." 
+                            }}"""
                             parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
                             parts.append(prompt)
-                            res = gemini_client.models.generate_content(
-                                model='gemini-2.5-flash',
-                                contents=parts
-                            )
+                            res = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=parts)
                             st.session_state.dados.update(extrair_json_seguro(res.text))
                             st.rerun()
                         except Exception as e: st.error(f"Erro ao ler certidões: {e}")
@@ -971,17 +1043,16 @@ if menu == "Nova Análise":
             with st.container(border=True):
                 resumo_certidoes = st.text_area("Apontamentos Jurídicos", d.get("resumo_certidoes", ""), height=150)
                 
-                st.write("") # Respiro visual
-                st.write("") # Respiro visual extra                
-                # Coluna 1 (Voltar), Coluna 2 (Espaço vazio gigante), Coluna 3 (Avançar)
+                st.write("") 
+                st.write("")               
                 c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
                 with c_b1:
                     if st.button("Voltar"): 
-                        st.session_state.step = 3 # Altere para o passo anterior correto
+                        st.session_state.step = 3 
                         st.rerun()         
                 with c_b2:
                     if st.button("Avançar"): 
-                        st.session_state.step = 5 # Altere para o próximo passo correto
+                        st.session_state.step = 5 
                         st.rerun()
 
        # --- PASSO 5: CONTÁBIL ---
@@ -995,6 +1066,10 @@ if menu == "Nova Análise":
         </h3>
         """, unsafe_allow_html=True)
         
+                # AJUSTE 5: Trava de Divergência Visual
+        if d.get("alerta_divergencia_contabil"):
+            st.error(f"🚨 **ALERTA DE DIVERGÊNCIA DE DADOS:** {d.get('alerta_divergencia_contabil')}")
+
         with st.container(border=True):
             st.info("💡 **Dica:** Faça upload de Balanços Anuais E Balancetes Mensais juntos.")
             uploaded = st.file_uploader("PDFs Contábeis (Últimos 3 anos)", accept_multiple_files=True, key="up5")
@@ -1010,6 +1085,8 @@ if menu == "Nova Análise":
                         prompt = f"""
                         Atue como Auditor Contábil Sênior. Analise TODOS os documentos financeiros fornecidos (Balanço Patrimonial e DRE, preferencialmente SPED Fiscal) referentes aos últimos 03 anos (sendo 02 anos anteriores fechados + ano atual, ainda que parcial).
                         
+                        REGRA DE COMPLIANCE: Verifique se os balanços pertencem à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Se não pertencerem, preencha 'alerta_divergencia_contabil'.
+
                         ATENÇÃO CRÍTICA: Extraia os valores numéricos EXATAMENTE como estão no documento. 
                         NÃO remova zeros à direita, NÃO arredonde. Mantenha os milhares exatos.
                         Retorne os valores financeiros obrigatoriamente como STRING no JSON (ex: "150000.00").
@@ -1129,7 +1206,7 @@ if menu == "Nova Análise":
                             ATENÇÃO CRÍTICA: Extraia os valores numéricos EXATAMENTE como estão no documento. NÃO remova zeros à direita.
                             Crie um dossiê patrimonial único e estruturado:
                             1. Identifique o nome de cada titular (sócio).
-                            2. Para CADA sócio, liste de forma resumida: Renda Anual, Principais Aplicações Financeiras e Principais Bens Imóveis.
+                            2. Para CADA sócio, liste de forma resumida: Renda Anual, Principais Aplicações Financeiras e Principais Bens Imóveis e a evolução patrimonial.
                             3. Ao final, crie uma seção "CONSOLIDADO GLOBAL" somando a renda de todos os sócios e resumindo a força do patrimônio total.
                             
                             TAREFA 2: PARECER JURÍDICO FINAL (Baseado nos dados abaixo + IR analisado)
@@ -1250,9 +1327,9 @@ if menu == "Nova Análise":
                 except Exception as e:
                     st.error(f"Erro ao salvar na planilha: {e}")
 
-# ==========================================
+# 
 # PÁGINA: DASHBOARD EXECUTIVO
-# ==========================================
+# 
 if menu == "Dashboard":
     
     st.markdown(f"""
@@ -1316,10 +1393,8 @@ if menu == "Dashboard":
             def converter_data_segura(data_str):
                 try:
                     if '-' in data_str:
-                        # Se tem traço, é padrão de banco de dados (Ano-Mês-Dia)
                         return pd.to_datetime(data_str, format='%Y-%m-%d')
                     else:
-                        # Se tem barra, é padrão brasileiro (Dia/Mês/Ano)
                         return pd.to_datetime(data_str, format='%d/%m/%Y')
                 except:
                     return pd.NaT
@@ -1336,13 +1411,12 @@ if menu == "Dashboard":
             st.error(f"Erro ao conectar com o Google Sheets: {e}")
             return pd.DataFrame()
 
-    # CHAMA A FUNÇÃO AQUI
     df = carregar_dados_reais()
 
     if df.empty:
         st.warning("Nenhum dado encontrado na planilha ou erro de conexão.")
     else:
-        # 2. FILTRO GLOBAL (Estilizado e com largura ajustada)
+        # 2. FILTRO GLOBAL
         meses_disponiveis = df.sort_values('Mês_Num', ascending=False)['Mês/Ano'].unique().tolist()
         meses_disponiveis.insert(0, "Todos os Períodos")
 
@@ -1362,16 +1436,21 @@ if menu == "Dashboard":
         else:
             df_filtrado = df
 
-        # 3. MÉTRICAS FINANCEIRAS
+        # 3. MÉTRICAS FINANCEIRAS (CORRIGIDO: Ignorando emojis na matemática)
         total_analises = len(df_filtrado)
-        df_aprovados = df_filtrado[df_filtrado['Status'].astype(str).str.upper() == 'APROVADO']
-        df_reprovados = df_filtrado[df_filtrado['Status'].astype(str).str.upper() == 'REPROVADO']
+        
+        # Cria uma coluna limpa temporária só para a matemática funcionar perfeitamente
+        status_limpo = df_filtrado['Status'].astype(str).str.replace('🟢', '').str.replace('🟠', '').str.replace('🔴', '').str.strip().str.upper()
+        
+        # Considera tanto APROVADO quanto APROVADO COM RESSALVAS para o VGV
+        df_aprovados = df_filtrado[status_limpo.isin(['APROVADO', 'APROVADO COM RESSALVAS'])]
+        df_reprovados = df_filtrado[status_limpo == 'REPROVADO']
 
         taxa_aprovacao = (len(df_aprovados) / total_analises * 100) if total_analises > 0 else 0
         vgv_aprovado = df_aprovados['Valor_Aluguel'].sum()
         risco_evitado = df_reprovados['Valor_Aluguel'].sum()
 
-        # 4. CARDS EXECUTIVOS (Estilizados com HTML/CSS)
+        # 4. CARDS EXECUTIVOS
         st.write("")
         c1, c2, c3, c4 = st.columns(4)
 
@@ -1410,8 +1489,10 @@ if menu == "Dashboard":
         import plotly.express as px 
         cg1, cg2 = st.columns([1, 2])
 
+        # Adicionado APROVADO COM RESSALVAS no mapa de cores
         color_map = {
             "APROVADO": COR_PRIMARIA, 
+            "APROVADO COM RESSALVAS": "#F39C12", 
             "REPROVADO": COR_SECUNDARIA, 
             "EM ANÁLISE": COR_TERCIARIA
         }
@@ -1420,7 +1501,8 @@ if menu == "Dashboard":
             st.markdown("**Proporção de Status**")
             if total_analises > 0:
                 df_filtrado_grafico = df_filtrado.copy()
-                df_filtrado_grafico['Status'] = df_filtrado_grafico['Status'].astype(str).str.upper()
+                # Limpa os emojis para o gráfico reconhecer as cores exatas do color_map
+                df_filtrado_grafico['Status'] = df_filtrado_grafico['Status'].astype(str).str.replace('🟢', '').str.replace('🟠', '').str.replace('🔴', '').str.strip().str.upper()
                 
                 fig_pie = px.pie(df_filtrado_grafico, names='Status', color='Status', color_discrete_map=color_map, hole=0.4)
                 fig_pie.update_layout(
@@ -1480,7 +1562,7 @@ if menu == "Dashboard":
                 fig_bar.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
                 st.plotly_chart(fig_bar, width="stretch")
 
-        # 6. TABELA DE ÚLTIMAS MOVIMENTAÇÕES (Fundo Terciário)
+        # 6. TABELA DE ÚLTIMAS MOVIMENTAÇÕES
         st.write("")
         st.markdown("**Últimas Análises Realizadas**")
         df_display = df_filtrado.sort_values('Data', ascending=False).head(10).copy()
