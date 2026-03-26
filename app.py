@@ -333,10 +333,17 @@ def str_to_float(val):
     try: return float(str(val).replace('R$', '').replace('.', '').replace(',', '.').strip())
     except: return 0.0
 
+def formatar_valor_contabil(valor):
+    """Converte valores em parênteses (15000) para formato negativo - 15000"""
+    v_str = str(valor).strip()
+    if v_str.startswith('(') and v_str.endswith(')'):
+        numero_limpo = v_str[1:-1].strip()
+        return f"- {numero_limpo}"
+    return v_str
+
 def gerar_pdf_bytes(dados, decisao):
     def limpa(texto):
-        # Muda de 'replace' para 'ignore' (apaga o emoji silenciosamente)
-        # O .strip() remove o espaço vazio que sobra antes da palavra
+        # Ignora emojis e limpa espaços
         return str(texto).encode('latin-1', 'ignore').decode('latin-1').strip()
 
     def safe_float(valor):
@@ -355,15 +362,12 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.set_margins(left=20, top=20, right=20)
     pdf.set_auto_page_break(auto=True, margin=20)
     
-    # --- INTELIGÊNCIA ESPACIAL ---
     def check_space(space_needed):
-        # Altura A4 (297mm) - Margem Inferior (20mm) = 277mm de área útil
-        # Se a posição atual + o espaço que o bloco precisa passar do limite, quebra a página
         if pdf.get_y() + space_needed > 277:
             pdf.add_page()
 
     # ==========================================
-    # PÁGINA 1: CAPA MODERNA
+    # PÁGINA 1: CAPA DINÂMICA PREMIUM
     # ==========================================
     pdf.add_page()
     pdf.ln(60)
@@ -377,18 +381,29 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.cell(0, 15, limpa("Análise de Risco Locatício"), ln=True, align='C')
     pdf.ln(15)
     
+    # Lógica da Capa Dinâmica (O quadrado estica conforme o texto)
+    empresa_nome = dados.get('empresa', dados.get('pretendente', 'Não informado'))
+    imovel_nome = dados.get('imovel', 'Não informado')
+    
+    pdf.set_font("Arial", 'B', 14)
+    w_empresa = pdf.get_string_width(limpa(empresa_nome))
+    pdf.set_font("Arial", '', 10)
+    w_imovel = pdf.get_string_width(limpa(f"Imóvel: {imovel_nome}"))
+    
+    max_w = max(w_empresa, w_imovel) + 40 # 40mm de margem interna
+    if max_w > 170: max_w = 170 # Trava na largura máxima da página A4
+    x_rect = (210 - max_w) / 2
+    
     pdf.set_fill_color(245, 245, 245)
-    pdf.rect(40, pdf.get_y(), 130, 35, 'F')
-    pdf.set_y(pdf.get_y() + 8)
+    pdf.rect(x_rect, pdf.get_y(), max_w, 25, 'F')
+    pdf.set_y(pdf.get_y() + 5)
     
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", 'B', 14)
-    empresa_nome = dados.get('empresa', dados.get('pretendente', 'Não informado'))
     pdf.cell(0, 8, limpa(empresa_nome), ln=True, align='C')
     
     pdf.set_font("Arial", '', 10)
     pdf.set_text_color(80, 80, 80)
-    imovel_nome = dados.get('imovel', 'Não informado')
     pdf.cell(0, 6, limpa(f"Imóvel: {imovel_nome}"), ln=True, align='C')
     
     pdf.set_y(-40)
@@ -400,7 +415,6 @@ def gerar_pdf_bytes(dados, decisao):
     # ==========================================
     pdf.add_page()
     
-    # O título agora exige pelo menos 35mm de espaço livre abaixo dele
     def title(txt, space_needed=35):
         check_space(space_needed)
         pdf.ln(8)
@@ -416,10 +430,10 @@ def gerar_pdf_bytes(dados, decisao):
         pdf.set_font("Arial", 'B', 10)
         pdf.cell(45, 6, limpa(label))
         pdf.set_font("Arial", '', 10)
-        pdf.multi_cell(0, 6, limpa(value))
+        pdf.multi_cell(0, 6, limpa(value), align='J') # Adicionado Justificado ABNT
 
     # --- 1. RESUMO DO NEGÓCIO ---
-    title("1. Resumo do Negócio", 60) # Exige 60mm por causa dos cards
+    title("1. Resumo do Negócio", 60)
     row("Pretendente:", dados.get('pretendente', '-'))
     row("Atividade:", dados.get('atividade', '-'))
     row("Imóvel:", dados.get('imovel', '-'))
@@ -450,6 +464,17 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.set_font("Arial", 'B', 12); pdf.set_text_color(0, 0, 0); pdf.cell(50, 6, limpa(f"R$ {val_iptu:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")), align='C')
     
     pdf.set_y(y_cards + 25)
+    
+    # Inclusão das Condições e Informações Gerais
+    condicoes = dados.get('condicoes_gerais', '')
+    info_gerais = dados.get('info_gerais_manuais', '')
+    
+    if condicoes and condicoes.lower() != 'não informado':
+        pdf.ln(2)
+        row("Condições Gerais:", condicoes)
+    if info_gerais and info_gerais.lower() != 'não informado':
+        pdf.ln(2)
+        row("Informações Gerais:", info_gerais)
 
     # --- 2. DADOS CADASTRAIS ---
     title("2. Qualificação Societária e Restrições", 50)
@@ -459,92 +484,287 @@ def gerar_pdf_bytes(dados, decisao):
     row("Capital Social:", dados.get('capital_social', '-'))
     row("Quadro Societário:", dados.get('socios_participacao', '-'))
     pdf.ln(3)
+    
     pdf.set_font("Arial", 'B', 10)
-    pdf.cell(0, 6, limpa("Apontamentos (Serasa e Certidões):"), ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.multi_cell(0, 5, limpa(dados.get('resumo_apontamentos', 'Nada consta.')), align='J')
+    pdf.set_text_color(44, 62, 80)
+    pdf.cell(0, 6, limpa("Apontamentos e Restrições (Serasa):"), ln=True)
+    pdf.set_text_color(0, 0, 0)
+    
+    # Puxa as chaves exatas geradas no Passo 3 (ajuste os nomes das chaves se no seu código estiver diferente)
+    score = str(dados.get('score', 'Não informado'))
+    risco = str(dados.get('risco', 'Não informado'))
+    mapeamento = str(dados.get('mapeamento_dividas', dados.get('resumo_serasa', 'Nada consta.')))
+    
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(30, 5, limpa("Score Serasa:"), border=0)
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, limpa(score), border=0, ln=True)
+    
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(30, 5, limpa("Risco Serasa:"), border=0)
+    pdf.set_font("Arial", '', 9)
+    pdf.cell(0, 5, limpa(risco), border=0, ln=True)
+    
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(0, 5, limpa("Mapeamento de Riscos (Restrições):"), border=0, ln=True)
+    pdf.set_font("Arial", '', 9)
+    pdf.multi_cell(0, 5, limpa(mapeamento), align='J')
 
-    # --- 3. AUDITORIA FINANCEIRA ---
-    title("3. Auditoria Financeira", 60) # Exige espaço para a tabela/gráfico
+      # --- 3. AUDITORIA FINANCEIRA ---
+    title("3. Auditoria Financeira", 60)
     periodos = dados.get("periodos", [])
     receitas = dados.get("receita_bruta", [])
     lucros = dados.get("resultado", [])
-    
+
+    # FUNÇÃO INJETADA: Trata os parênteses contábeis antes de converter para float
+    def trata_negativo_contabil(v):
+        v_str = str(v).strip()
+        if v_str.startswith('(') and v_str.endswith(')'):
+            return "-" + v_str[1:-1].strip()
+        return v_str
+
     if periodos and len(periodos) > 0:
+        # Tabela Original Mantida
         pdf.set_font("Arial", 'B', 9)
         pdf.cell(30, 6, limpa("PERÍODO"), 0, 0)
         pdf.cell(60, 6, limpa("RECEITA BRUTA"), 0, 0)
         pdf.cell(60, 6, limpa("RESULTADO LÍQUIDO"), 0, 1)
         pdf.line(20, pdf.get_y(), 190, pdf.get_y())
         pdf.ln(2)
-        
-        max_val = max([safe_float(r) for r in receitas] + [1]) 
-        
+
+        # Aplica a regra no max_val para o gráfico de barras não quebrar
+        max_val = max([safe_float(trata_negativo_contabil(r)) for r in receitas] + [1])
+
         pdf.set_font("Arial", '', 9)
         for i in range(len(periodos)):
             try:
-                rec_val = safe_float(receitas[i])
-                luc_val = safe_float(lucros[i])
-                
+                # APLICAÇÃO DA REGRA: Limpa os parênteses antes do safe_float
+                rec_val = safe_float(trata_negativo_contabil(receitas[i]))
+                luc_val = safe_float(trata_negativo_contabil(lucros[i]))
+
                 pdf.set_xy(20, pdf.get_y() + 2)
                 y_linha = pdf.get_y()
                 pdf.cell(30, 6, limpa(periodos[i]), 0, 0)
+                
                 pdf.cell(60, 6, limpa(f"R$ {rec_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")), 0, 0)
+                
+                # Se for negativo, a cor fica vermelha automaticamente pelo seu código original!
                 if luc_val < 0: pdf.set_text_color(200, 0, 0)
                 pdf.cell(60, 6, limpa(f"R$ {luc_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")), 0, 1)
                 pdf.set_text_color(0, 0, 0)
-                
+
                 largura_rec = (rec_val / max_val) * 50 if max_val > 0 else 0
                 largura_luc = (abs(luc_val) / max_val) * 50 if max_val > 0 else 0
-                
+
                 pdf.set_fill_color(173, 216, 230)
                 pdf.rect(50, y_linha + 6, largura_rec, 2, 'F')
-                
+
                 if luc_val >= 0: pdf.set_fill_color(144, 238, 144)
                 else: pdf.set_fill_color(255, 182, 193)
                 pdf.rect(110, y_linha + 6, largura_luc, 2, 'F')
-                
+
                 pdf.ln(4)
             except: pass
-            
+
+        # NOVA MATRIZ DE BALANÇO PATRIMONIAL
+        pdf.ln(8)
+        pdf.set_font("Arial", 'B', 9)
+        pdf.cell(0, 6, limpa("MATRIZ DE BALANÇO PATRIMONIAL"), ln=True)
+        pdf.set_font("Arial", 'B', 8)
+
+        largura_col = 170 / (len(periodos) + 1)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(largura_col, 6, limpa("INDICADOR"), border=1, align='C', fill=True)
+        for p in periodos:
+            pdf.cell(largura_col, 6, limpa(str(p)), border=1, align='C', fill=True)
+        pdf.ln()
+
+        indicadores = [
+            ("Patrimônio Líquido", "patrimonio_liquido"),
+            ("Ativo Circulante", "ativo_circulante"),
+            ("Ativo Não Circulante", "ativo_nao_circulante"),
+            ("Passivo Circulante", "passivo_circulante"),
+            ("Passivo Não Circulante", "passivo_nao_circulante"),
+            ("Imobilizado", "imobilizado")
+        ]
+
+        pdf.set_font("Arial", '', 8)
+        for nome_ind, chave_ind in indicadores:
+            pdf.cell(largura_col, 6, limpa(nome_ind), border=1)
+            valores = dados.get(chave_ind, [])
+            for i in range(len(periodos)):
+                val = valores[i] if i < len(valores) else "Não encontrado"
+                if val and val != "Não encontrado" and val != "-" and str(val).strip() != "":
+                    try:
+                        # APLICAÇÃO DA REGRA NA MATRIZ
+                        val_limpo = trata_negativo_contabil(val)
+                        val_f = safe_float(val_limpo)
+                        val_str = f"R$ {val_f:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        
+                        # Deixa o texto vermelho na matriz se for negativo
+                        if val_f < 0:
+                            pdf.set_text_color(200, 0, 0)
+                        else:
+                            pdf.set_text_color(0, 0, 0)
+                    except:
+                        val_str = str(val)
+                        pdf.set_text_color(0, 0, 0)
+                else:
+                    val_str = "Não encontrado"
+                    pdf.set_text_color(0, 0, 0)
+                    
+                pdf.cell(largura_col, 6, limpa(val_str), border=1, align='C')
+                pdf.set_text_color(0, 0, 0) # Reseta a cor para a próxima célula
+            pdf.ln()
+
     pdf.ln(5)
     row("Comprometimento:", f"{dados.get('comprometimento_renda', '0')}% (Aluguel+IPTU sobre Receita)")
 
-       # --- 4. CAPACIDADE DE GARANTIA ---
+    # --- 4. CAPACIDADE DE GARANTIA ---
     garantia_tipo = str(dados.get('garantia', '')).lower()
-    
-    if "fiador" in garantia_tipo:
-        # Se a garantia for Fiador, traz a análise gerada no Passo 1
-        title("4. Capacidade de Garantia (Fiador)", 40)
-        pdf.set_font("Arial", '', 10)
-        parecer_fiador = dados.get('parecer_fiador', 'Análise do fiador não informada ou pendente.')
-        pdf.multi_cell(0, 5, limpa(parecer_fiador), align='J')
-    else:
-        # Se não for Fiador, traz a análise dos Sócios (Passo 6)
-        title("4. Capacidade de Garantia (Sócios)", 40)
-        
-        # Se existir o novo dossiê consolidado do Passo 6, usa ele. Se não, usa o modelo antigo.
-        if dados.get('resumo_patrimonial'):
-            pdf.set_font("Arial", '', 10)
-            pdf.multi_cell(0, 5, limpa(dados.get('resumo_patrimonial')), align='J')
-        else:
-            row("Renda Anual (IR):", dados.get('renda_anual', '-'))
-            row("Aplicações:", dados.get('aplicacoes_financeiras', '-'))
-            row("Bens Imóveis:", dados.get('bens_imoveis', '-'))
 
-    # --- 5. PARECER E VEREDITO ---
-    # Exige 70mm de espaço livre para não cortar o banner no meio
-    title("5. Parecer Jurídico", 70) 
+    # Lógica Condicional Correta: Puxa a matriz certa baseada na garantia
+    if "fiador" in garantia_tipo:
+        title("4. Capacidade de Garantia (Fiador)", 40)
+        matriz = dados.get("matriz_fiadores", {})
+        conclusao = dados.get("conclusao_fiador", "")
+    else:
+        title("4. Capacidade de Garantia (Sócios)", 40)
+        matriz = dados.get("matriz_socios", {})
+        conclusao = dados.get("conclusao_socio", "")
+
+    if matriz and isinstance(matriz, dict) and "nomes" in matriz:
+        nomes = matriz.get("nomes", [])
+        
+        # AJUSTE DE LARGURA: Reduzido para 170mm total (igual ao item 3)
+        largura_total = 170
+        largura_indicador = 55
+        largura_dados = (largura_total - largura_indicador) / len(nomes) if len(nomes) > 0 else 40
+        
+        pdf.set_font("Arial", 'B', 8)
+        pdf.set_fill_color(240, 240, 240)
+        
+        # --- CABEÇALHO ---
+        pdf.set_x(20) # Indentação para alinhar com o resto do documento
+        pdf.cell(largura_indicador, 6, limpa("Indicador"), 1, 0, 'L', fill=True)
+        for nome in nomes:
+            pdf.cell(largura_dados, 6, limpa(nome), 1, 0, 'C', fill=True)
+        pdf.ln()
+        
+        # --- LINHAS DE DADOS ---
+        pdf.set_font("Arial", '', 8)
+        linhas = [
+            ("Rendimentos tributáveis (IRPF)", matriz.get("rendimentos_tributaveis", [])),
+            ("Rendimentos não tributáveis (IRPF)", matriz.get("rendimentos_nao_tributaveis", [])),
+            ("Renda mensal média oficial", matriz.get("renda_mensal_media", [])),
+            ("Renda mensal atual", matriz.get("renda_mensal_atual", [])),
+            ("Patrimônio declarado", matriz.get("patrimonio", []))
+        ]
+        
+        for titulo_linha, valores in linhas:
+            pdf.set_x(20) # Mantém a indentação em todas as linhas
+            pdf.cell(largura_indicador, 6, limpa(titulo_linha), 1, 0, 'L')
+            for i in range(len(nomes)):
+                val = valores[i] if i < len(valores) else "-"
+                pdf.cell(largura_dados, 6, limpa(str(val)), 1, 0, 'C')
+            pdf.ln()
+            
+        # Linha extra do Aluguel Pretendido
+        aluguel_str = f"R$ {dados.get('aluguel', '0')}"
+        pdf.set_x(20)
+        pdf.cell(largura_indicador, 6, limpa("Aluguel pretendido"), 1, 0, 'L')
+        for i in range(len(nomes) - 1):
+            pdf.cell(largura_dados, 6, "-", 1, 0, 'C')
+        pdf.cell(largura_dados, 6, limpa(aluguel_str), 1, 1, 'C')
+        
+        pdf.ln(5)
+        
+        # --- CONCLUSÃO ---
+        if conclusao:
+            pdf.set_font("Arial", 'B', 9)
+            pdf.cell(0, 5, limpa("Conclusão Prática:"), border=0, ln=True)
+            pdf.set_font("Arial", '', 9)
+            pdf.multi_cell(0, 5, limpa(conclusao), align='J')
+            
+    else:
+        # Fallback de segurança
+        pdf.set_font("Arial", '', 10)
+        texto_fallback = dados.get('parecer_fiador', dados.get('resumo_patrimonial', 'Análise não informada.'))
+        pdf.multi_cell(0, 5, limpa(texto_fallback), align='J')
+
+    # --- 5. CHECKLIST DE DOCUMENTAÇÃO ANALISADA ---
+    title("5. Checklist de Documentação Analisada", 60)
+
+    # Recupera o checklist salvo no session_state (ou um dicionário vazio se não houver)
+    checklist = dados.get("checklist_docs", {})
+
+    # Lista oficial de todos os passos da esteira
+    passos_oficiais = [
+        "Passo 0 (Contrato Social)",
+        "Passo 1 (Proposta)",
+        "Passo 1 (Fiador)",
+        "Passo 2 (Cadastral)",
+        "Passo 3 (Serasa)",
+        "Passo 4 (Certidões)",
+        "Passo 5 (Contábil)"
+    ]
+
+    pdf.set_font("Arial", '', 9)
+
+    for passo in passos_oficiais:
+        arquivos = checklist.get(passo, [])
+        
+        if arquivos:
+            # Tem arquivo: Colchete com X (Verde)
+            pdf.set_text_color(46, 204, 113) # Verde
+            pdf.cell(10, 5, "[ X ]", border=0)
+            pdf.set_text_color(0, 0, 0) # Volta pro preto
+            pdf.set_font("Arial", 'B', 9)
+            pdf.cell(0, 5, limpa(passo) + ":", border=0, ln=True)
+            
+            # Lista os nomes dos arquivos
+            pdf.set_font("Arial", 'I', 8)
+            pdf.set_text_color(100, 100, 100) # Cinza escuro
+            for arq in arquivos:
+                pdf.cell(10, 4, "", border=0) # Espaçamento (identação)
+                pdf.cell(0, 4, "- " + limpa(arq), border=0, ln=True)
+            pdf.set_text_color(0, 0, 0) # Volta pro preto
+            pdf.set_font("Arial", '', 9)
+            
+        else:
+            # Não tem arquivo: Colchete vazio (Vermelho/Cinza)
+            pdf.set_text_color(231, 76, 60) # Vermelho
+            pdf.cell(10, 5, "[   ]", border=0)
+            pdf.set_text_color(0, 0, 0) # Volta pro preto
+            pdf.set_font("Arial", 'B', 9)
+            pdf.cell(0, 5, limpa(passo) + ":", border=0, ln=True)
+            
+            # Mensagem de ausência
+            pdf.set_font("Arial", 'I', 8)
+            pdf.set_text_color(150, 150, 150) # Cinza claro
+            pdf.cell(10, 4, "", border=0) # Espaçamento
+            pdf.cell(0, 4, limpa("- Nenhum documento anexado nesta etapa."), border=0, ln=True)
+            pdf.set_text_color(0, 0, 0) # Volta pro preto
+            pdf.set_font("Arial", '', 9)
+            
+        pdf.ln(2) # Espaçinho entre os passos
+        
+    pdf.ln(5) # Espaço antes do próximo grande bloco
+
+    # --- 5. PARECER JURÍDICO ---
+    title("6. Parecer Jurídico", 70) 
     pdf.set_font("Arial", '', 10)
     parecer = dados.get('parecer_oficial', 'Parecer não gerado.')
-    pdf.multi_cell(0, 5, limpa(parecer), align='J')
+    pdf.multi_cell(0, 5, limpa(parecer), align='J') # ABNT
     pdf.ln(10)
     
-    # Verifica se sobrou espaço para o banner gigante, senão joga pra próxima página
     check_space(40)
     
-    is_aprovado = "APROVADO" in decisao.upper()
-    is_reprovado = "REPROVADO" in decisao.upper()
+    # Remove emojis na hora de imprimir o veredito
+    decisao_limpa = decisao.replace("🟢", "").replace("🟠", "").replace("🔴", "").strip()
+    
+    is_aprovado = "APROVADO" in decisao_limpa.upper()
+    is_reprovado = "REPROVADO" in decisao_limpa.upper()
     
     if is_aprovado: 
         cor_fundo = (230, 245, 230); cor_texto = (0, 120, 0)
@@ -563,8 +783,6 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.cell(170, 6, limpa("RESULTADO DA ANÁLISE"), align='C', ln=True)
     
     pdf.set_font("Arial", 'B', 20)
-    # Remove os emojis e espaços manualmente antes de mandar pro PDF
-    decisao_limpa = decisao.replace("🟢", "").replace("🟠", "").replace("🔴", "").strip()
     pdf.cell(170, 10, limpa(decisao_limpa.upper()), align='C', ln=True)
     
     pdf.set_font("Arial", 'I', 9)
@@ -580,6 +798,8 @@ gemini_client = genai.Client(api_key=API_KEY)
 
 if 'step' not in st.session_state: st.session_state.step = 0
 if 'dados' not in st.session_state: st.session_state.dados = {}
+if "checklist_docs" not in st.session_state.dados:
+    st.session_state.dados["checklist_docs"] = {}
 
 # --- SIDEBAR COM OPTION MENU (O SEGREDO DO SAAS) ---
 with st.sidebar:
@@ -644,12 +864,12 @@ with st.sidebar:
             st.session_state.step = 1
             st.rerun()
 
- # --- ÁREA DE DESENVOLVEDOR (TESTE MOCK) ---
+    # --- ÁREA DE DESENVOLVEDOR (TESTE MOCK) ---
     st.divider()
     st.caption("🛠️ Modo Desenvolvedor")
     if st.button("🧪 Injetar Dados de Teste (Mock)", width="stretch"):
         st.session_state.dados = {
-            # Passo 1
+            # Passo 0 (Contrato Social + Aditivos)
             "empresa": "TechNova Soluções em TI LTDA",
             "cnpj": "12.345.678/0001-99",
             "endereco_empresa": "Av. Paulista, 1000, Conj 50, São Paulo - SP",
@@ -657,39 +877,57 @@ with st.sidebar:
             "capital_social": "R$ 500.000,00",
             "socios_participacao": "João Silva (60%), Maria Souza (40%)",
             "administrador": "João Silva",
+            "informacoes_adicionais": "Alteração Contratual 01 (2021): Entrada da sócia Maria Souza. Alteração 02 (2023): Aumento de capital social de R$ 100k para R$ 500k.",
             
-            # Passo 2
+            # Passo 1 (Proposta)
             "pretendente": "TechNova Soluções em TI LTDA",
             "atividade": "Desenvolvimento de Software",
             "imovel": "Galpão Logístico - Módulo 3 - Condomínio Alpha",
             "prazo": "36 meses",
+            "data_inicio": "01/05/2026",
+            "carencia": "3 meses (Isenção de aluguel, paga apenas IPTU)",
             "aluguel": "15000.00",
             "iptu": "1200.00",
-            "garantia": "Seguro Fiança",
+            "garantia": "Fiador",
+            "condicoes_gerais": "Reajuste anual pelo IPCA. Multa rescisória de 3 aluguéis proporcionais. Seguro incêndio obrigatório.",
+            "info_gerais_manuais": "Cliente solicitou autorização para instalação de mezanino metálico. Proprietário de acordo, desde que com ART.",
+            "parecer_fiador": "O fiador apresentado (Sr. Roberto Carlos) possui renda mensal comprovada de R$ 45.000,00 e 3 imóveis quitados na capital que somam R$ 3.500.000,00. Capacidade financeira excelente e totalmente compatível para garantir a locação de R$ 15.000,00.",
+            
+            # Passo 2 (Ficha Cadastral)
             "ref_locaticias": "Paga aluguel atual de R$ 8.000 na Imobiliária XYZ sem atrasos.",
             "ref_comerciais": "Dell Computadores - (11) 4000-1111 / Kalunga - (11) 3333-2222",
             "ref_bancarias": "Itaú - Ag 1234 - Gerente Carlos (11) 99999-8888",
             
-            # Passo 3
-            "resumo_apontamentos": "Nada consta no Serasa para a PJ. Sócio João possui um protesto de R$ 1.200,00 (já regularizado). Certidões negativas estaduais e federais válidas.",
+            # Passo 3 e 4 (Serasa e Certidões)
+            "score": "850",
+            "risco": "Baixo",
+            "resumo_serasa": "1. PENDÊNCIAS FINANCEIRAS: Nenhuma pendência financeira, protesto ou dívida vencida registrada para a PJ.\n2. ANÁLISE CRUZADA: Sócios não apresentam apontamentos que ofereçam risco de contágio.\n3. PARTICIPAÇÕES: Empresa não possui participação em outras sociedades.",
+            "resumo_certidoes": "Certidões Negativas de Débitos (CND) Federal, Estadual e Municipal válidas. Nada consta na Justiça do Trabalho.",
+            "resumo_apontamentos": "Nada consta no Serasa para a PJ. Sócios sem restrições. Certidões negativas estaduais e federais válidas.",
             
-            # Passo 4 (Contábil)
+            # Passo 5 (Contábil + Matriz Financeira)
             "periodos": ["2021", "2022", "2023"],
-            "receita_bruta": ["1200000", "1800000", "2500000"],
-            "resultado": ["150000", "280000", "450000"],
-            "comprometimento_renda": "7.7", # (15000+1200) / (2500000/12) * 100
+            "receita_bruta": ["1200000.00", "1800000.00", "2500000.00"],
+            "resultado": ["150000.00", "280000.00", "450000.00"],
+            "patrimonio_liquido": ["500000.00", "780000.00", "1230000.00"],
+            "ativo_circulante": ["300000.00", "450000.00", "800000.00"],
+            "ativo_nao_circulante": ["250000.00", "380000.00", "500000.00"],
+            "passivo_circulante": ["50000.00", "50000.00", "70000.00"],
+            "passivo_nao_circulante": ["0.00", "0.00", "0.00"],
+            "imobilizado": ["200000.00", "300000.00", "400000.00"],
+            "evolucao_yoy": "Crescimento contínuo e expressivo. A receita bruta cresceu 50% em 2022 e 38% em 2023. O lucro líquido acompanhou a escalada, crescendo 86% e 60% respectivamente.",
+            "analise_executiva": "Empresa apresenta balanço extremamente saudável, com alta liquidez (Ativo Circulante cobre o Passivo Circulante em mais de 10 vezes). O comprometimento da renda com a locação pretendida é de apenas 7.7%, indicando risco financeiro quase nulo.",
+            "comprometimento_renda": "7.7",
             
-            # Passo 5 (IR)
-            "dossie_patrimonial": "Sócio João: Renda declarada de R$ 350.000/ano. Possui 2 imóveis quitados (R$ 1.5M). Sócio Maria: Renda declarada de R$ 200.000/ano. Aplicações financeiras de R$ 500k.",
+            # Passo 6 (IR Sócios)
+            "resumo_patrimonial": "1. Sócio João Silva: Renda declarada de R$ 350.000/ano. Evolução patrimonial positiva, passando de R$ 1.2M (2022) para R$ 1.5M (2023), justificada pela renda. Possui 2 imóveis quitados.\n2. Sócia Maria Souza: Renda declarada de R$ 200.000/ano. Evolução estável, com R$ 500k em aplicações financeiras de alta liquidez.\nCONSOLIDADO GLOBAL: Patrimônio forte e líquido, garantindo conforto adicional à operação.",
             
-            # Passo 7 (Parecer IA)
-            "parecer_final": "A empresa apresenta excelente saúde financeira, com crescimento de receita contínuo nos últimos 3 anos e margem de lucro sólida. O comprometimento de renda para a locação é inferior a 8%, o que representa baixíssimo risco. A garantia de Seguro Fiança mitiga eventuais inadimplências. Recomenda-se a aprovação.",
-            
-            # Passo 7 (Parecer Oficial - Vazio para você testar a edição)
-            "parecer_oficial": "A empresa apresenta excelente saúde financeira, com crescimento de receita contínuo nos últimos 3 anos e margem de lucro sólida. O comprometimento de renda para a locação é inferior a 8%, o que representa baixíssimo risco. A garantia de Seguro Fiança mitiga eventuais inadimplências. Recomenda-se a aprovação."
+            # Passo 7 (Parecer IA e Oficial)
+            "parecer_final": "A empresa apresenta excelente saúde financeira, com crescimento de receita contínuo nos últimos 3 anos e margem de lucro sólida. O comprometimento de renda para a locação é inferior a 8%, o que representa baixíssimo risco. A garantia apresentada (Fiador) foi validada e possui lastro patrimonial superior a 200 vezes o valor do aluguel. Recomenda-se a aprovação integral da operação.",
+            "parecer_oficial": "A empresa apresenta excelente saúde financeira, com crescimento de receita contínuo nos últimos 3 anos e margem de lucro sólida. O comprometimento de renda para a locação é inferior a 8%, o que representa baixíssimo risco. A garantia apresentada (Fiador) foi validada e possui lastro patrimonial superior a 200 vezes o valor do aluguel. Recomenda-se a aprovação integral da operação."
         }
-        # Pula direto para o Dashboard
-        st.session_state.step = 6
+        # Pula direto para o Passo 7 (Veredito Final) para você já ver o PDF
+        st.session_state.step = 7
         st.rerun()
             
 # --- ROTEAMENTO DE TELAS ---
@@ -721,6 +959,10 @@ if menu == "Nova Análise":
                 # AJUSTE 1: accept_multiple_files=True
                 uploaded = st.file_uploader("Upload Contrato e Aditivos (PDFs)", type="pdf", accept_multiple_files=True, key="up0")
                 if uploaded and st.button("Extrair Dados Societários"):
+                    
+                    # CORREÇÃO: Usando a variável 'uploaded' que foi definida acima
+                    st.session_state.dados["checklist_docs"]["Passo 0 (Contrato Social)"] = [f.name for f in uploaded]
+                    
                     with st.spinner("Analisando Documentos..."):
                         try:
                             # AJUSTE 2: Prompt atualizado para aditivos
@@ -733,7 +975,7 @@ if menu == "Nova Análise":
                                 "endereco_empresa": "Extrair o endereço completo da sede da empresa. Se não achar, retorne 'Não informado'",
                                 "data_abertura": "", 
                                 "capital_social": "", 
-                                "socios_participacao": "Quadro societário final/atualizado", 
+                                "socios_participacao": "Quadro societário final/atualizado", É ESTRITAMENTE PROIBIDO retornar arrays [ ] ou objetos { } neste campo,
                                 "administrador": "",
                                 "informacoes_adicionais": "Breve resumo cronológico das alterações contratuais (ex: entrada/saída de sócios, aumento de capital). Se não houver aditivos, escreva 'Documento original sem aditivos identificados.'"
                             }"""
@@ -771,7 +1013,7 @@ if menu == "Nova Análise":
                         st.session_state.step = 1
                         st.rerun()
 
-        # --- PASSO 1: PROPOSTA ---
+    # --- PASSO 1: PROPOSTA ---
     elif st.session_state.step == 1:
         d = st.session_state.dados
         
@@ -787,21 +1029,27 @@ if menu == "Nova Análise":
             with st.container(border=True):
                 uploaded = st.file_uploader("Upload Proposta (PDF)", type="pdf", key="up1")
                 if uploaded and st.button("Extrair Proposta"):
+                    
+                    # CORREÇÃO: 'uploaded' é um arquivo único, então usamos [uploaded.name]
+                    st.session_state.dados["checklist_docs"]["Passo 1 (Proposta)"] = [uploaded.name]
+                    
                     with st.spinner("Lendo..."):
                         try:
                             # AJUSTE 3: Novos campos no prompt
-                            prompt = """Extraia APENAS JSON válido, valores exatos como texto: 
+                            prompt = """Analise a proposta de locação e extraia os dados solicitados.
+                            REGRA CRÍTICA: Você DEVE retornar um JSON válido contendo EXATAMENTE todas as chaves abaixo. Se uma informação não existir no documento, preencha o valor com 'Não informado'. NUNCA omita nenhuma chave.
+                            REGRA CRÍTICA DE ESCALONAMENTO: Se a proposta apresentar valores de aluguel progressivos (ex: 1º ano X, 2º ano Y, 3º ano Z), você DEVE extrair APENAS o valor referente ao último ano (o valor mais alto e final) para o campo 'aluguel'.
                             { 
-                                "pretendente": "", 
-                                "atividade": "", 
-                                "imovel": "Extrair EXATAMENTE o endereço do imóvel objeto da locação. REGRA CRÍTICA: NUNCA preencha com o endereço da própria empresa pretendente. Se não achar, retorne 'NÃO INFORMADO'.", 
-                                "prazo": "", 
-                                "data_inicio": "Data de início da locação, se houver",
-                                "carencia": "Período de carência ou isenção, se houver",
+                                "pretendente": "Nome da empresa ou pessoa", 
+                                "atividade": "Ramo de atividade", 
+                                "imovel": "Extrair EXATAMENTE o endereço do imóvel objeto da locação. REGRA CRÍTICA: NUNCA preencha com o endereço da própria empresa pretendente.", 
+                                "prazo": "Prazo total do contrato", 
+                                "data_inicio": "Data de início da locação",
+                                "carencia": "Período de carência ou isenção",
                                 "aluguel": "Valor exato", 
-                                "iptu": "Valor exato", 
+                                "iptu": "REGRA CRÍTICA: Se o texto disser '10 parcelas de R$1000' ou '10x de 1000', extraia APENAS o valor da parcela mensal (ex: '1000.00').", 
                                 "garantia": "Tipo de garantia (ex: Fiador, Seguro Fiança, Caução)",
-                                "condicoes_gerais": "Resumo de índices de reajuste, multas ou condições especiais"
+                                "condicoes_gerais": "Resumo de índices de reajuste, multas ou condições especiais. PROIBIDO usar formatação Markdown (asteriscos, hashtags). Escreva em texto corrido limpo. Se não houver, escreva 'Não informado'."
                             }"""
                             res = gemini_client.models.generate_content(
                                 model='gemini-2.5-flash',
@@ -848,14 +1096,41 @@ if menu == "Nova Análise":
                 with st.container(border=True):
                     up_fiador = st.file_uploader("Upload Docs do Fiador (IR, Matrícula)", type="pdf", accept_multiple_files=True, key="up_fiador")
                     if up_fiador and st.button("Analisar Capacidade do Fiador"):
+                        
+                        # NOVO: Adicionando os documentos do Fiador no checklist
+                        st.session_state.dados["checklist_docs"]["Passo 1 (Fiador)"] = [f.name for f in up_fiador]
+                        
                         with st.spinner("Analisando Fiador..."):
                             try:
                                 prompt_fiador = f"""
-                                Analise os documentos do fiador. O aluguel pretendido é R$ {d.get('aluguel', '0')}.
-                                Verifique a renda declarada e o patrimônio (imóveis). 
-                                Retorne APENAS um JSON válido:
+                                Atue como Analista de Crédito Sênior e Especialista em Garantias Locatícias.
+                                Analise os documentos anexados referentes ao(s) fiador(es) ou sócio(s). 
+                                O aluguel pretendido é R$ {st.session_state.dados.get('aluguel', '0')}.
+
+                                Siga RIGOROSAMENTE as seguintes regras de extração para montar uma matriz comparativa:
+                                1. Identifique todos os indivíduos.
+                                2. Extraia os Rendimentos Tributáveis anuais do último IRPF.
+                                3. Extraia os Rendimentos Não Tributáveis anuais do último IRPF.
+                                4. Calcule a Renda Mensal Média Oficial (soma dos rendimentos anuais dividida por 12).
+                                5. Identifique a Renda Mensal Atual (se houver holerites/prolabores recentes anexados, caso contrário use '-').
+                                6. Extraia o Patrimônio Total declarado no último IRPF.
+                                7. Na última posição dos arrays de valores, SEMPRE coloque a SOMA (Combinado) de todos os indivíduos.
+
+                                Para a conclusão, siga EXATAMENTE este formato e tom de voz (adaptando os valores):
+                                "Patrimonialmente, [sim/não], eles demonstram força para atuar como fiadores, porque o patrimônio conjunto de R$ [X] é [expressivo/insuficiente] em relação ao aluguel proposto.
+                                Sob a ótica de renda mensal, a situação é [apertada/confortável/inviável]. A renda combinada fica em aproximadamente [X]x o aluguel, o que indica capacidade de pagamento [existente com folga limitada / excelente / insuficiente]."
+
+                                Retorne APENAS um JSON válido no formato exato abaixo:
                                 {{
-                                    "parecer_fiador": "Texto detalhando a renda, os bens do fiador e concluindo se ele tem capacidade financeira para garantir a locação."
+                                    "matriz_fiadores": {{
+                                        "nomes": ["Nome 1", "Nome 2", "Combinado"],
+                                        "rendimentos_tributaveis": ["R$ X", "R$ Y", "R$ Soma"],
+                                        "rendimentos_nao_tributaveis": ["R$ X", "R$ Y", "R$ Soma"],
+                                        "renda_mensal_media": ["R$ X", "R$ Y", "R$ Soma"],
+                                        "renda_mensal_atual": ["R$ X", "-", "R$ Soma"],
+                                        "patrimonio": ["R$ X", "R$ Y", "R$ Soma"]
+                                    }},
+                                    "conclusao_fiador": "Texto da conclusão nos moldes solicitados."
                                 }}
                                 """
                                 parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in up_fiador]
@@ -866,8 +1141,8 @@ if menu == "Nova Análise":
                             except Exception as e: st.error(f"Erro: {e}")
             with cf2:
                 with st.container(border=True):
-                    parecer_fiador = st.text_area("Parecer sobre o Fiador", d.get("parecer_fiador", ""), height=150)
-                    st.session_state.dados["parecer_fiador"] = parecer_fiador
+                    parecer_fiador = st.text_area("Parecer sobre o Fiador", d.get("conclusao_fiador", ""), height=150)
+                    st.session_state.dados["conclusão_fiador"] = parecer_fiador
 
         st.write("") 
         st.write("")                
@@ -897,6 +1172,7 @@ if menu == "Nova Análise":
             with st.container(border=True):
                 uploaded = st.file_uploader("Upload Ficha Cadastral (PDF)", type="pdf", key="up2")
                 if uploaded and st.button("Extrair Referências"):
+                    st.session_state.dados["checklist_docs"]["Passo 2 (Ficha Cadastral)"] = [uploaded.name]
                     with st.spinner("Lendo..."):
                         try:
                             prompt = """Extraia APENAS JSON válido resumindo as referências: 
@@ -951,6 +1227,7 @@ if menu == "Nova Análise":
             with st.container(border=True):
                 uploaded = st.file_uploader("Upload Serasa (Múltiplos PDFs)", accept_multiple_files=True, key="up3")
                 if uploaded and st.button("Mapear Pendências"):
+                    st.session_state.dados["checklist_docs"]["Passo 3 (Serasa)"] = [f.name for f in uploaded]
                     with st.spinner("Analisando riscos e contágio..."):
                         try:
                             # AJUSTE 5: Prompt de Compliance
@@ -958,23 +1235,23 @@ if menu == "Nova Análise":
                             Atue como Analista de Risco. 
                             REGRA DE COMPLIANCE: Estes documentos devem pertencer à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}) ou a seus sócios. Se os documentos principais forem de uma empresa totalmente diferente, preencha o campo 'alerta_divergencia_serasa' informando o erro. Se estiver correto, deixe vazio.
 
-                            Extraia os valores financeiros EXATAMENTE como estão. NÃO remova zeros à direita.
-                            Retorne APENAS um JSON válido no seguinte formato:
+                            INSTRUÇÕES DE ANÁLISE (Use isso como base mental para elaborar o resumo):
+                            1. PENDÊNCIAS FINANCEIRAS: Verifique se possui pendências. Se sim, detalhe o tipo (Protesto, Pefin, Refin, etc.), credores, valores exatos e datas.
+                            2. ANÁLISE CRUZADA: 
+                               - Se o documento for PJ: Analise o quadro de sócios. Existe alguma sinalização de pendência para os sócios? (Se sim, recomende puxar o Serasa PF do sócio).
+                               - Se o documento for PF: Verifique se há pendências nas empresas em que a pessoa é sócia (Se sim, recomende puxar o Serasa PJ).
+                            3. PARTICIPAÇÕES SOCIETÁRIAS: Indique a existência de outras empresas em que a PJ principal for sócia, ou se os sócios possuem participação em outras empresas.
+
+                            REGRA DE FORMATAÇÃO CRÍTICA PARA O RESUMO:
+                            O campo 'mapeamento_dividas' DEVE ser um resumo executivo em TEXTO CORRIDO (parágrafo único) sintetizando todas as informações analisadas acima. 
+                            É ESTRITAMENTE PROIBIDO usar formato de perguntas e respostas, tópicos, quebras de linha ou formatação Markdown (asteriscos, traços). Seja direto e profissional.
+
+                            Retorne APENAS um JSON válido no seguinte formato exato:
                             {{
                                 "alerta_divergencia_serasa": "",
-                                "score": "Valor exato do score em texto",
-                                "risco": "Baixo/Médio/Alto",
-                                "resumo_serasa": "1. PENDÊNCIAS FINANCEIRAS:
-                                - Possui pendências? (Sim/Não)
-                                - Que tipo e natureza? (Ex: Protesto, Cheque sem fundo, Pefin, Refin, Dívida Vencida, Falência)
-                                - Quais são os credores?
-                                - Qual o valor exato envolvido em cada pendência?
-                                - Qual a data de cada pendência?
-                                2. ANÁLISE CRUZADA: 
-                                - Se o documento for PJ: Analise o quadro de sócios. Existe alguma sinalização de pendência apontada para os sócios? (Se sim, emita um alerta recomendando puxar o Serasa PF do sócio específico).
-                                - Se o documento for PF: Verifique se há sinalização de pendências nas empresas em que a pessoa figura como sócia (Se sim, emita um alerta recomendando puxar o Serasa PJ da empresa específica).
-                                3. PARTICIPAÇÕES SOCIETÁRIAS:                            - Indique a existência de eventuais outras empresas em que a PJ principal for sócia.
-                                - Indique se os sócios (PF ou PJ) possuem participação em outras empresas listadas no documento."
+                                "score_serasa": "Valor exato do score",
+                                "risco_serasa": "Baixo/Médio/Alto",
+                                "mapeamento_dividas": "Texto corrido em parágrafo único contendo a síntese executiva das pendências, análise cruzada e participações societárias."
                             }}
                             """
                             parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
@@ -1022,10 +1299,12 @@ if menu == "Nova Análise":
             with st.container(border=True):
                 uploaded = st.file_uploader("Upload Lote de Certidões (Múltiplos PDFs)", accept_multiple_files=True, key="up4")
                 if uploaded and st.button("Auditar Certidões"):
+                    st.session_state.dados["checklist_docs"]["Passo 4 (Certidões)"] = [f.name for f in uploaded]
                     with st.spinner("Lendo certidões..."):
                         try:
                             prompt = f"""Atue como Advogado. 
                             REGRA DE COMPLIANCE: Verifique se as certidões pertencem à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Se forem de terceiros não relacionados, preencha 'alerta_divergencia_certidoes'.
+                            PROIBIDO usar formatação Markdown (asteriscos, hashtags, traços). Escreva em texto corrido, formato executivo e parágrafos limpos.
                             
                             Extraia APENAS JSON válido: 
                             {{ 
@@ -1074,57 +1353,82 @@ if menu == "Nova Análise":
             uploaded = st.file_uploader("PDFs Contábeis (Últimos 3 anos)", accept_multiple_files=True, key="up5")
             
             if uploaded and st.button("Executar Auditoria Avançada"):
+                st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
                 with st.spinner("Consolidando finanças..."):
                     try:
                         # Resgatando os valores da proposta para a IA calcular o comprometimento
                         aluguel_proposto = st.session_state.dados.get("aluguel", "0")
                         iptu_proposto = st.session_state.dados.get("iptu", "0")
                         
-                        # Prompt blindado e robusto para Auditoria Contábil
+                        # Prompt blindado e robusto para Auditoria Contábil (Structured Prompting)
                         prompt = f"""
-                        Atue como Auditor Contábil Sênior. Analise TODOS os documentos financeiros fornecidos (Balanço Patrimonial e DRE, preferencialmente SPED Fiscal) referentes aos últimos 03 anos (sendo 02 anos anteriores fechados + ano atual, ainda que parcial).
+                        Analise os documentos financeiros anexados seguindo estritamente este framework:
                         
-                        REGRA DE COMPLIANCE: Verifique se os balanços pertencem à empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Se não pertencerem, preencha 'alerta_divergencia_contabil'.
-
-                        ATENÇÃO CRÍTICA: Extraia os valores numéricos EXATAMENTE como estão no documento. 
-                        NÃO remova zeros à direita, NÃO arredonde. Mantenha os milhares exatos.
-                        Retorne os valores financeiros obrigatoriamente como STRING no JSON (ex: "150000.00").
-                        
-                        TAREFA 1 - EXTRAÇÃO DE DADOS (Ordene cronologicamente do mais antigo para o mais recente):
-                        Extraia os seguintes dados para cada período encontrado:
-                        - Receita Bruta
-                        - Resultado (Lucro ou Prejuízo)
-                        - Patrimônio Líquido (Capital Social + Resultado)
-                        - Ativo Circulante
-                        - Ativo Não Circulante
-                        - Passivo Circulante
-                        - Passivo Não Circulante
-                        - Imobilizado
-                        obs: trazer uma tabela com uma demonstração clara e executiva das informações acima (imprescindível).
-                        
-                        TAREFA 2 - ANÁLISE DO RESULTADO ACUMULADO:
-                        Considerando a série histórica da empresa, avalie o Patrimônio Líquido e informe qual o resultado acumulado atual (Lucro ou Prejuízo) e o seu valor.
-                        
-                        TAREFA 3 - CÁLCULO DE COMPROMETIMENTO:
-                        - Valor do Aluguel Proposto: R$ {aluguel_proposto}
-                        - Valor do IPTU Proposto: R$ {iptu_proposto}
-                        Calcule a Receita Bruta Mensal Média (baseada no último ano/período mais recente).
-                        Calcule o percentual de comprometimento usando a relação: ((Aluguel + IPTU) / Receita Bruta Mensal Média) * 100.
-                        
-                        Retorne APENAS JSON válido no formato exato abaixo:
                         {{
-                            "periodos": ["2022", "2023", "2024"],
-                            "receita_bruta": ["100000.00", "120000.00", "150000.00"],
-                            "resultado": ["10000.00", "-5000.00", "12000.00"],
-                            "patrimonio_liquido": ["50000.00", "45000.00", "57000.00"],
-                            "ativo_circulante": ["...", "...", "..."],
-                            "ativo_nao_circulante": ["...", "...", "..."],
-                            "passivo_circulante": ["...", "...", "..."],
-                            "passivo_nao_circulante": ["...", "...", "..."],
-                            "imobilizado": ["...", "...", "..."],
-                            "resultado_acumulado_historico": "Texto descritivo informando se o resultado acumulado atual da série histórica é de lucro ou prejuízo, com base no PL.",
-                            "analise_executiva": "Resumo objetivo e conciso da saúde financeira da empresa. OBRIGATÓRIO incluir o cálculo de comprometimento da renda de forma clara."
+                          "role": "Auditor Contábil Sênior — Especialistas em Normas Brasileiras (Lei 6.404/76, CPC 00 a CPC 48, NBC TG, IFRS 16)",
+                          "task": "Analisar demonstrações financeiras anexadas (DRE e Balanço Patrimonial) com rigor técnico, diferenciando contas de resultado (fluxo/performance) de contas patrimoniais (posição/riqueza).",
+                          "compliance_rule": "Validar titularidade: empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Qualquer divergência de CNPJ, razão social ou período incompatível → campo 'alerta_divergencia_contabil' com motivo exato. Ignore Saldo Anterior/Saldo Inicial zerados; sempre extraia Saldo Final/Movimento do exercício atual.",
+                          "data_extraction": {{
+                            "format": "Valores exatamente como no documento (R$ 1.234,56 -> '1234.56'; parênteses (5.000,00) -> '-5000.00'). Sem zeros à direita desnecessários. Ignorar saldos iniciais zerados. Ordenar por cronologia.",
+                            "dre": {{
+                              "fields": ["receita_bruta", "ebitda", "resultado"],
+                              "rules": {{
+                                "receita_bruta": "Faturamento total antes de deduções (impostos, devoluções) — linha 3.1 CPC 26.",
+                                "ebitda": "Resultado Operacional + Depreciação/Amortização. Se ausente, usar '...'.",
+                                "resultado": "Última linha da DRE após IRPJ/CSLL (art. 187 Lei 6.404/76). Não pode ser zero — é o valor transferido ao PL."
+                              }}
+                            }},
+                            "bp": {{
+                              "fields": ["patrimonio_liquido", "ativo_circulante", "ativo_nao_circulante", "passivo_circulante", "passivo_nao_circulante", "imobilizado"],
+                              "rules": {{
+                                "patrimonio_liquido": "Capital Social + Reservas + Lucros/Prejuízos Acumulados (inclui resultado do exercício).",
+                                "ativo_circulante": "Bens/direitos realizáveis a curto prazo (Caixa, Clientes/Duplicatas a Receber, Estoques).",
+                                "ativo_nao_circulante": "Direitos a longo prazo + bens permanentes (Imobilizado, Intangível, Investimentos).",
+                                "passivo_circulante": "Obrigações curto prazo (Fornecedores, Impostos a Recolher, Empréstimos < 1 ano).",
+                                "passivo_nao_circulante": "Obrigações longo prazo (Empréstimos LP, Parcelamentos, Provisões).",
+                                "imobilizado": "Subgrupo do Ativo Não Circulante — bens tangíveis deduzidos de depreciação acumulada (itens 3.6 CPC 27)."
+                              }}
+                            }}
+                          }},
+                          "analysis": {{
+                            "yoy": {{
+                              "description": "Calcular variações percentuais: ((Ano N - Ano N-1) / Ano N-1) * 100",
+                              "alerts": {{
+                                "receita_crescimento": ">20% indica expansão",
+                                "lucro_queda": ">15% sinaliza risco operacional"
+                              }}
+                            }},
+                            "comprometimento_financeiro": {{
+                              "description": "Comprometimento com despesas imobiliárias (norma locatícia / IFRS 16)",
+                              "formula": "Receita Mensal Média = Receita Bruta Anual / 12. % Comprometimento = ((Aluguel R$ {aluguel_proposto} + IPTU R$ {iptu_proposto}) / Receita Mensal Média) * 100",
+                              "alert_threshold": ">30% = risco de inadimplência"
+                            }},
+                            "liquidez": {{
+                              "formula": "Liquidez Corrente = Ativo Circulante / Passivo Circulante"
+                            }}
+                          }},
+                          "output": {{
+                            "format": "JSON válido, texto corrido sem Markdown (sem asteriscos/hashtags/traços), parágrafos limpos.",
+                            "structure": {{
+                              "alerta_divergencia_contabil": "string (motivo exato ou vazio)",
+                              "periodos": ["string (YYYY)", "string", "string"],
+                              "receita_bruta": ["string (valor)", "string", "string"],
+                              "ebitda": ["string (valor ou '...')", "string", "string"],
+                              "resultado": ["string (valor)", "string", "string"],
+                              "patrimonio_liquido": ["string", "string", "string"],
+                              "ativo_circulante": ["string", "string", "string"],
+                              "ativo_nao_circulante": ["string", "string", "string"],
+                              "passivo_circulante": ["string", "string", "string"],
+                              "passivo_nao_circulante": ["string", "string", "string"],
+                              "imobilizado": ["string", "string", "string"],
+                              "evolucao_yoy": "string (texto executivo: crescimento/queda % ano a ano de Receita, EBITDA e Lucro)",
+                              "analise_executiva": "string (parecer técnico: saúde financeira, índices de liquidez, estrutura de capital, comprometimento da renda)",
+                              "comprometimento_renda": "string (Apenas o número do cálculo de comprometimento ex: 15.5)"
+                            }}
+                          }}
                         }}
+                        
+                        Retorne APENAS um JSON válido correspondente ao bloco 'output.structure' preenchido com os dados reais da análise.
                         """
                         parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
                         parts.append(prompt)
@@ -1192,32 +1496,42 @@ if menu == "Nova Análise":
                 uploaded = st.file_uploader("Upload IR Sócios (Múltiplos PDFs)", type="pdf", accept_multiple_files=True, key="up6")
                 
                 if uploaded and st.button("Analisar e Consolidar Patrimônio"):
+                    st.session_state.dados["checklist_docs"]["Passo 6 (IR Sócios)"] = [f.name for f in uploaded]
                     with st.spinner("Analisando declarações e gerando parecer final..."):
                         try:
-                            # Prompt robusto consolidando a extração do IR e a geração do Parecer
                             prompt = f"""
-                            Atue como Analista de Crédito Sênior e Advogado Especialista em Direito Imobiliário.
+                            Atue como Analista de Crédito Sênior e Especialista em Garantias Locatícias.
+                            Analise as Declarações de Imposto de Renda (IRPF) anexadas referentes aos sócios da empresa.
                             
-                            Você tem DUAS tarefas simultâneas:
+                            DADOS GLOBAIS DA OPERAÇÃO JÁ COLETADOS:
+                            - Aluguel pretendido: R$ {st.session_state.dados.get('aluguel', '0')}
+                            - Score Serasa da Empresa: {st.session_state.dados.get('score_serasa', 'Não informado')}
+                            - Risco Serasa: {st.session_state.dados.get('risco_serasa', 'Não informado')}
+                            - Comprometimento da Renda (Auditoria Contábil): {st.session_state.dados.get('comprometimento_renda', '0')}%
                             
-                            TAREFA 1: ANÁLISE DE IMPOSTO DE RENDA (Baseado nos PDFs anexados)
-                            Analise as Declarações de Imposto de Renda (IR) enviadas.
-                            ATENÇÃO CRÍTICA: Extraia os valores numéricos EXATAMENTE como estão no documento. NÃO remova zeros à direita.
-                            Crie um dossiê patrimonial único e estruturado:
-                            1. Identifique o nome de cada titular (sócio).
-                            2. Para CADA sócio, liste de forma resumida: Renda Anual, Principais Aplicações Financeiras e Principais Bens Imóveis e a evolução patrimonial.
-                            3. Ao final, crie uma seção "CONSOLIDADO GLOBAL" somando a renda de todos os sócios e resumindo a força do patrimônio total.
-                            
-                            TAREFA 2: PARECER JURÍDICO FINAL (Baseado nos dados abaixo + IR analisado)
-                            Analise os dados acumulados do cliente fornecidos abaixo e redija um parecer jurídico recomendando a aprovação ou reprovação da locação, cruzando as informações da empresa com a força da garantia (IR).
-                            
-                            DADOS ACUMULADOS DO CLIENTE:
-                            {st.session_state.dados}
-                            
-                            Retorne APENAS JSON válido no formato: 
-                            {{ 
-                                "resumo_patrimonial": "Texto estruturado detalhando cada sócio e o Consolidado Global.",
-                                "parecer_final": "Texto do parecer jurídico completo, analisando o risco da operação com base em todos os dados e no IR."
+                            Siga RIGOROSAMENTE as seguintes regras de extração para montar uma matriz comparativa:
+                            1. Identifique todos os indivíduos (sócios).
+                            2. Extraia os Rendimentos Tributáveis e Não Tributáveis anuais do último IRPF.
+                            3. Calcule a Renda Mensal Média Oficial (soma dos rendimentos anuais dividida por 12).
+                            4. Identifique a Renda Mensal Atual (se houver prolabores recentes, caso contrário use '-').
+                            5. Extraia o Patrimônio Total declarado no último IRPF (Bens e Direitos).
+                            6. Na última posição dos arrays, SEMPRE coloque a SOMA (Combinado).
+
+                            PRÉ-PARECER JURÍDICO GLOBAL (parecer_final):
+                            Com base nos DADOS GLOBAIS fornecidos acima E na análise atual dos sócios, escreva um parecer final recomendando explicitamente: APROVADO, APROVADO COM RESSALVA ou REPROVADO. Justifique com base no Serasa, saúde contábil e força patrimonial.
+
+                            Retorne APENAS um JSON válido no formato exato abaixo:
+                            {{
+                                "matriz_socios": {{
+                                    "nomes": ["Nome Sócio 1", "Nome Sócio 2", "Combinado"],
+                                    "rendimentos_tributaveis": ["R$ X", "R$ Y", "R$ Soma"],
+                                    "rendimentos_nao_tributaveis": ["R$ X", "R$ Y", "R$ Soma"],
+                                    "renda_mensal_media": ["R$ X", "R$ Y", "R$ Soma"],
+                                    "renda_mensal_atual": ["R$ X", "-", "R$ Soma"],
+                                    "patrimonio": ["R$ X", "R$ Y", "R$ Soma"]
+                                }},
+                                "conclusao_socio": "Texto da conclusão sobre os sócios.",
+                                "parecer_final": "Veredito global (Aprovado/Reprovado) unindo Serasa, Contábil e Sócios."
                             }}
                             """
                             parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
@@ -1234,27 +1548,32 @@ if menu == "Nova Análise":
                             
                             # Já deixa o parecer oficial pré-preenchido com o rascunho da IA para o Passo 7
                             if "parecer_final" in dados_extraidos:
-                                st.session_state.dados["parecer_oficial"] = dados_extraidos["parecer_final"]
+                                st.session_state.dados["parecer_final"] = dados_extraidos["parecer_final"]
                                 
                             st.rerun()
                         except Exception as e: st.error(f"Erro ao ler IR e gerar parecer: {e}")
         with c2:
             with st.container(border=True):
-                # Um único campo de texto robusto e alto para receber o dossiê completo
-                resumo_patrimonial = st.text_area("Dossiê Patrimonial Consolidado (Todos os Sócios)", st.session_state.dados.get("resumo_patrimonial", ""), height=600)
-                st.session_state.dados["resumo_patrimonial"] = resumo_patrimonial
+                # Puxando a chave correta: "conclusao_analise"
+                conclusao_analise = st.text_area("Conclusão da Análise (Sócios)", st.session_state.dados.get("conclusao_socio", ""), height=150)
+                st.session_state.dados["conclusao_socio"] = conclusao_analise
+                
+                # Puxando a chave correta: "parecer_final"
+                parecer_final = st.text_area("Pré-Parecer Jurídico Gerado", st.session_state.dados.get("parecer_final", ""), height=300)
+                st.session_state.dados["parecer_final"] = parecer_final
                 
                 st.write("") # Respiro visual
                 st.write("") # Respiro visual extra                
+                
                 # Coluna 1 (Voltar), Coluna 2 (Espaço vazio gigante), Coluna 3 (Avançar)
                 c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
                 with c_b1:
                     if st.button("Voltar"): 
-                        st.session_state.step = 5 # Altere para o passo anterior correto
+                        st.session_state.step = 5 # Volta para o Contábil
                         st.rerun()         
                 with c_b2:
                     if st.button("Avançar"): 
-                        # Como o parecer já foi gerado na análise do IR, apenas avançamos para o Passo 7
+                        # Avança para o Passo 7
                         st.session_state.step = 7 
                         st.rerun()
 
@@ -1347,6 +1666,7 @@ if menu == "Dashboard":
             client = gspread.authorize(creds)
             
             planilha = client.open("banco_locacao_paulo_bio").sheet1 
+
             dados = planilha.get_all_records()
             
             if not dados:
@@ -1415,21 +1735,30 @@ if menu == "Dashboard":
     if df.empty:
         st.warning("Nenhum dado encontrado na planilha ou erro de conexão.")
     else:
-        # 2. FILTRO GLOBAL
-        meses_disponiveis = df.sort_values('Mês_Num', ascending=False)['Mês/Ano'].unique().tolist()
-        meses_disponiveis.insert(0, "Todos os Períodos")
-
+        # 2. FILTRO GLOBAL (Com Calendário Interativo)
         st.markdown(f"""
-        <div style='display: flex; align-items: center; margin-bottom: 5px;'>
-            <i class="bi bi-funnel-fill" style="color: {COR_PRIMARIA}; font-size: 1.2rem; margin-right: 8px;"></i>
+        <div style='display: flex; align-items: center; margin-bottom: 10px;'>
+            <i class="bi bi-calendar-event-fill" style="color: {COR_PRIMARIA}; font-size: 1.2rem; margin-right: 8px;"></i>
             <span style="color: white; font-size: 1.1rem; font-weight: 500;">Filtrar por Período</span>
         </div>
         """, unsafe_allow_html=True)
 
-        col_filtro, _ = st.columns([2, 3])
-        with col_filtro:
-            periodo_selecionado = st.selectbox("Filtro", meses_disponiveis, label_visibility="collapsed")
+        c_opt, c_cal, _ = st.columns([1.5, 1.5, 2])
+        
+        with c_opt:
+            # Botão de rádio horizontal elegante
+            tipo_filtro = st.radio("Filtro", ["Todos os Períodos", "Mês Específico"], horizontal=True, label_visibility="collapsed")
+            
+        with c_cal:
+            if tipo_filtro == "Mês Específico":
+                # Abre o calendário nativo. O usuário escolhe qualquer dia do mês desejado.
+                data_selecionada = st.date_input("Selecione uma data do mês desejado:", format="DD/MM/YYYY", label_visibility="collapsed")
+                # O código converte a data escolhida (ex: 15/03/2026) para o formato do nosso filtro (03/2026)
+                periodo_selecionado = data_selecionada.strftime('%m/%Y')
+            else:
+                periodo_selecionado = "Todos os Períodos"
 
+        # Aplica o filtro na base de dados
         if periodo_selecionado != "Todos os Períodos":
             df_filtrado = df[df['Mês/Ano'] == periodo_selecionado]
         else:
@@ -1470,7 +1799,7 @@ if menu == "Dashboard":
         with c3:
             st.markdown(f"""
             <div class="kpi-card" style="border-left-color: #2ECC71;">
-                <p style="color: #AAB7B8; margin-bottom: 5px; font-size: 14px;"><i class="bi bi-cash-coin" style="color: #2ECC71;"></i> VGV Aprovado</p>
+                <p style="color: #AAB7B8; margin-bottom: 5px; font-size: 14px;"><i class="bi bi-cash-coin" style="color: #2ECC71;"></i> VGL Aprovado</p>
                 <h3 style="color: white; margin: 0; font-size: 24px;">R$ {vgv_aprovado:,.2f}</h3>
             </div>
             """.replace(",", "X").replace(".", ",").replace("X", "."), unsafe_allow_html=True)
@@ -1517,7 +1846,7 @@ if menu == "Dashboard":
                 st.info("Sem dados para este período.")
 
         with cg2:
-            st.markdown("**VGV Aprovado por Mês (R$)**")
+            st.markdown("**VGL Aprovado por Mês (R$)**")
             
             meses_oficiais = ['mar/26', 'abr/26', 'mai/26', 'jun/26', 'jul/26', 'ago/26', 'set/26', 'out/26', 'nov/26', 'dez/26']
             
@@ -1673,12 +2002,32 @@ elif menu == "Histórico":
                 st.write(f"**Data da Análise:** {linha_dados['Data']}")
                 st.write(f"**Veredito:** {linha_dados['Status']}")
                 st.write(f"**Observação:** {linha_dados['obs_final']}")
+                # --- NOVO: EXIBIÇÃO DO CHECKLIST DE DOCUMENTOS ---
+                import json
+                dados_sessao_recuperados = json.loads(linha_dados['dados_json'])
+                checklist = dados_sessao_recuperados.get("checklist_docs", {})
+                
+                if checklist:
+                    st.write("")
+                    with st.expander("📚 Documentos Analisados (Checklist)", expanded=False):
+                        for passo, arquivos in checklist.items():
+                            if arquivos:
+                                st.markdown(f"**✅ {passo}:**")
+                                for arq in arquivos:
+                                    st.markdown(f"- <span style='color:#7F8C8D; font-size: 0.9em;'>{arq}</span>", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"**❌ {passo}:** <span style='color:#7F8C8D; font-size: 0.9em;'>Nenhum documento anexado.</span>", unsafe_allow_html=True)
             
             with c_acoes:
                 try:
                     import json
                     dados_sessao_recuperados = json.loads(linha_dados['dados_json'])
-                    pdf_bytes = gerar_pdf_executivo(dados_sessao_recuperados)
+                    
+                    # 1. Pega o status (decisão) que está salvo na linha da tabela
+                    decisao_recuperada = str(linha_dados['Status'])
+                    
+                    # 2. Chama a função com o nome CORRETO e passando os DOIS parâmetros
+                    pdf_bytes = gerar_pdf_bytes(dados_sessao_recuperados, decisao_recuperada)
                     
                     st.download_button(
                         label="Baixar PDF Executivo",
@@ -1690,7 +2039,8 @@ elif menu == "Histórico":
                         icon=":material/download:"
                     )
                 except Exception as e:
-                    st.error("Erro ao recuperar PDF. Os dados podem estar incompletos.")
+                    # Adicionei o {e} para mostrar o erro exato caso aconteça de novo
+                    st.error(f"Erro ao recuperar PDF. Detalhe: {e}")
                 
                 st.write("")
                 
