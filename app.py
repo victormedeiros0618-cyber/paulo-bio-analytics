@@ -491,8 +491,8 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.set_text_color(0, 0, 0)
     
     # Puxa as chaves exatas geradas no Passo 3 (ajuste os nomes das chaves se no seu código estiver diferente)
-    score = str(dados.get('score', 'Não informado'))
-    risco = str(dados.get('risco', 'Não informado'))
+    score = str(dados.get('score_serasa', 'Não informado'))
+    risco = str(dados.get('risco_serasa', 'Não informado'))
     mapeamento = str(dados.get('mapeamento_dividas', dados.get('resumo_serasa', 'Nada consta.')))
     
     pdf.set_font("Arial", 'B', 9)
