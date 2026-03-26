@@ -1384,6 +1384,8 @@ if menu == "Nova Análise":
 
                         Sua tarefa é extrair os dados contábeis e elaborar um resumo financeiro. Siga rigorosamente o passo a passo abaixo:
 
+                        Regra importante: - Converta valores negativos que estejam entre parênteses (ex: (5.000,00)) para o formato com sinal de menos (ex: -5000.00).
+
                         Parte 1: Extração de Dados
                         Busque os dados cruzando as informações da DRE e do Balanço Patrimonial. Extraia os valores exatos para 2024 e 2025 das seguintes linhas:
                         Receita Bruta, EBITDA, Resultado do Exercício (Lucro/Prejuízo), Patrimônio Líquido, Ativo Circulante, Ativo Não Circulante, Passivo Circulante, Passivo Não Circulante, Imobilizado.
