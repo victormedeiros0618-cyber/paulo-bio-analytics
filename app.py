@@ -382,8 +382,8 @@ def gerar_pdf_bytes(dados, decisao):
     pdf.ln(15)
     
     # Lógica da Capa Dinâmica (O quadrado estica conforme o texto)
-    empresa_nome = dados.get('empresa', dados.get('pretendente', 'Não informado'))
-    imovel_nome = dados.get('imovel', 'Não informado')
+    empresa_nome = str(dados.get('empresa', dados.get('pretendente', ''))).strip() or 'Não informado'
+    imovel_nome = str(dados.get('imovel', '')).strip() or 'Não informado'
     
     pdf.set_font("Arial", 'B', 14)
     w_empresa = pdf.get_string_width(limpa(empresa_nome))
@@ -434,10 +434,10 @@ def gerar_pdf_bytes(dados, decisao):
 
     # --- 1. RESUMO DO NEGÓCIO ---
     title("1. Resumo do Negócio", 60)
-    row("Pretendente:", dados.get('pretendente', '-'))
-    row("Atividade:", dados.get('atividade', '-'))
-    row("Imóvel:", dados.get('imovel', '-'))
-    row("Garantia:", dados.get('garantia', '-'))
+    row("Pretendente:", str(dados.get('pretendente', '')).strip() or 'Não informado')
+    row("Atividade:", str(dados.get('atividade', '')).strip() or 'Não informada')
+    row("Imóvel:", str(dados.get('imovel', '')).strip() or 'Não informado')
+    row("Garantia:", str(dados.get('garantia', '')).strip() or 'Não informada')
     pdf.ln(5)
     
     y_cards = pdf.get_y()
