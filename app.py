@@ -703,10 +703,11 @@ def gerar_pdf_bytes(dados, decisao):
         "Passo 0 (Contrato Social)",
         "Passo 1 (Proposta)",
         "Passo 1 (Fiador)",
-        "Passo 2 (Cadastral)",
+        "Passo 2 (Ficha Cadastral)",
         "Passo 3 (Serasa)",
         "Passo 4 (Certidões)",
-        "Passo 5 (Contábil)"
+        "Passo 5 (Contábil)",
+        "Passo 6 (IR Sócios)"
     ]
 
     pdf.set_font("Arial", '', 9)
@@ -1063,20 +1064,36 @@ if menu == "Nova Análise":
         with c2:
             with st.container(border=True):
                 pretendente = st.text_input("Pretendente", d.get("pretendente", d.get("empresa", "")))
+                st.session_state.dados["pretendente"] = pretendente
+                
                 atividade = st.text_input("Atividade a ser realizada", d.get("atividade", ""))
+                st.session_state.dados["atividade"] = atividade
+                
                 imovel = st.text_input("Endereço do Imóvel", d.get("imovel", ""))
+                st.session_state.dados["imovel"] = imovel
                 
                 c_p1, c_p2, c_p3 = st.columns(3)
                 prazo = c_p1.text_input("Prazo", d.get("prazo", ""))
+                st.session_state.dados["prazo"] = prazo
+                
                 data_inicio = c_p2.text_input("Data de Início", d.get("data_inicio", ""))
+                st.session_state.dados["data_inicio"] = data_inicio
+                
                 carencia = c_p3.text_input("Carência", d.get("carencia", ""))
+                st.session_state.dados["carencia"] = carencia
                 
                 c_val1, c_val2 = st.columns(2)
                 aluguel = c_val1.text_input("Aluguel (R$)", d.get("aluguel", "0"))
+                st.session_state.dados["aluguel"] = aluguel
+                
                 iptu = c_val2.text_input("IPTU (R$)", d.get("iptu", "0"))
+                st.session_state.dados["iptu"] = iptu
                 
                 garantia = st.text_input("Garantia Proposta", d.get("garantia", ""))
+                st.session_state.dados["garantia"] = garantia
+                
                 condicoes = st.text_area("Condições Gerais (Reajustes/Multas)", d.get("condicoes_gerais", ""))
+                st.session_state.dados["condicoes_gerais"] = condicoes
                 
                 # AJUSTE 3: Campo manual livre
                 info_gerais = st.text_area("Informações Gerais (Anotações Livres)", d.get("info_gerais_manuais", ""))
@@ -1263,9 +1280,9 @@ if menu == "Nova Análise":
         with c2:
             with st.container(border=True):
                 c_m1, c_m2 = st.columns(2)
-                score_val = c_m1.text_input("Score Extraído", d.get("score", ""))
-                risco_val = c_m2.text_input("Nível de Risco", d.get("risco", ""))
-                resumo_serasa = st.text_area("Mapeamento de Riscos (Restrições)", d.get("resumo_serasa", ""), height=250)
+                score_val = c_m1.text_input("Score Extraído", d.get("score_serasa", ""))
+                risco_val = c_m2.text_input("Nível de Risco", d.get("risco_serasa", ""))
+                resumo_serasa = st.text_area("Mapeamento de Riscos (Restrições)", d.get("mapeamento_dividas", ""), height=250)
                 
                 st.write("") 
                 st.write("")               
@@ -1344,7 +1361,7 @@ if menu == "Nova Análise":
         </h3>
         """, unsafe_allow_html=True)
         
-                # AJUSTE 5: Trava de Divergência Visual
+        # AJUSTE 5: Trava de Divergência Visual
         if d.get("alerta_divergencia_contabil"):
             st.error(f"🚨 **ALERTA DE DIVERGÊNCIA DE DADOS:** {d.get('alerta_divergencia_contabil')}")
 
@@ -1353,82 +1370,49 @@ if menu == "Nova Análise":
             uploaded = st.file_uploader("PDFs Contábeis (Últimos 3 anos)", accept_multiple_files=True, key="up5")
             
             if uploaded and st.button("Executar Auditoria Avançada"):
-                st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
                 with st.spinner("Consolidando finanças..."):
                     try:
                         # Resgatando os valores da proposta para a IA calcular o comprometimento
                         aluguel_proposto = st.session_state.dados.get("aluguel", "0")
                         iptu_proposto = st.session_state.dados.get("iptu", "0")
                         
-                        # Prompt blindado e robusto para Auditoria Contábil (Structured Prompting)
+                        # Prompt blindado unindo sua lógica com a estrutura JSON necessária
                         prompt = f"""
-                        Analise os documentos financeiros anexados seguindo estritamente este framework:
-                        
+                        Atue como um analista financeiro sênior e Auditor Contábil. Em anexo, estão os Balanços Patrimoniais e as DREs de 2024 e 2025 da empresa.
+                        O aluguel pretendido é R$ {aluguel_proposto} e o IPTU é R$ {iptu_proposto}.
+                        A empresa analisada deve ser '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Se for diferente, preencha o campo 'alerta_divergencia_contabil'.
+
+                        Sua tarefa é extrair os dados contábeis e elaborar um resumo financeiro. Siga rigorosamente o passo a passo abaixo:
+
+                        Parte 1: Extração de Dados
+                        Busque os dados cruzando as informações da DRE e do Balanço Patrimonial. Extraia os valores exatos para 2024 e 2025 das seguintes linhas:
+                        Receita Bruta, EBITDA, Resultado do Exercício (Lucro/Prejuízo), Patrimônio Líquido, Ativo Circulante, Ativo Não Circulante, Passivo Circulante, Passivo Não Circulante, Imobilizado.
+                        Calcule o comprometimento da renda: ((Aluguel + IPTU) / (Receita Bruta Anual 2025 / 12)) * 100.
+
+                        Parte 2: Parecer do Auditor IA (analise_executiva)
+                        Escreva dois parágrafos de análise respondendo: Considerando a série histórica da empresa, qual o resultado acumulado atual (lucro ou prejuízo)?
+                        Para escrever esta análise, aplique obrigatoriamente a seguinte lógica interpretativa:
+                        - Identifique e cite que em 2024 a empresa possuía um expressivo 'Prejuízo Acumulado' (cite o valor exato do Balanço), o que deixou o Patrimônio Líquido negativo.
+                        - Identifique e cite que em 2025 houve uma reversão, gerando um 'Lucro' alto no Resultado do Exercício (cite o valor exato da DRE/Balanço).
+                        - Conclua a redação explicando a matemática financeira ocorrida: explique que o lucro de 2025 foi suficiente para absorver todo o prejuízo histórico, zerando o déficit e fazendo com que o Patrimônio Líquido de 2025 fechasse positivo, refletindo exatamente o valor do Capital Social integralizado.
+
+                        Retorne APENAS um JSON válido no formato exato abaixo. É ESTRITAMENTE PROIBIDO retornar qualquer texto fora do JSON.
                         {{
-                          "role": "Auditor Contábil Sênior — Especialistas em Normas Brasileiras (Lei 6.404/76, CPC 00 a CPC 48, NBC TG, IFRS 16)",
-                          "task": "Analisar demonstrações financeiras anexadas (DRE e Balanço Patrimonial) com rigor técnico, diferenciando contas de resultado (fluxo/performance) de contas patrimoniais (posição/riqueza).",
-                          "compliance_rule": "Validar titularidade: empresa '{d.get('empresa', '')}' (CNPJ: {d.get('cnpj', '')}). Qualquer divergência de CNPJ, razão social ou período incompatível → campo 'alerta_divergencia_contabil' com motivo exato. Ignore Saldo Anterior/Saldo Inicial zerados; sempre extraia Saldo Final/Movimento do exercício atual.",
-                          "data_extraction": {{
-                            "format": "Valores exatamente como no documento (R$ 1.234,56 -> '1234.56'; parênteses (5.000,00) -> '-5000.00'). Sem zeros à direita desnecessários. Ignorar saldos iniciais zerados. Ordenar por cronologia.",
-                            "dre": {{
-                              "fields": ["receita_bruta", "ebitda", "resultado"],
-                              "rules": {{
-                                "receita_bruta": "Faturamento total antes de deduções (impostos, devoluções) — linha 3.1 CPC 26.",
-                                "ebitda": "Resultado Operacional + Depreciação/Amortização. Se ausente, usar '...'.",
-                                "resultado": "Última linha da DRE após IRPJ/CSLL (art. 187 Lei 6.404/76). Não pode ser zero — é o valor transferido ao PL."
-                              }}
-                            }},
-                            "bp": {{
-                              "fields": ["patrimonio_liquido", "ativo_circulante", "ativo_nao_circulante", "passivo_circulante", "passivo_nao_circulante", "imobilizado"],
-                              "rules": {{
-                                "patrimonio_liquido": "Capital Social + Reservas + Lucros/Prejuízos Acumulados (inclui resultado do exercício).",
-                                "ativo_circulante": "Bens/direitos realizáveis a curto prazo (Caixa, Clientes/Duplicatas a Receber, Estoques).",
-                                "ativo_nao_circulante": "Direitos a longo prazo + bens permanentes (Imobilizado, Intangível, Investimentos).",
-                                "passivo_circulante": "Obrigações curto prazo (Fornecedores, Impostos a Recolher, Empréstimos < 1 ano).",
-                                "passivo_nao_circulante": "Obrigações longo prazo (Empréstimos LP, Parcelamentos, Provisões).",
-                                "imobilizado": "Subgrupo do Ativo Não Circulante — bens tangíveis deduzidos de depreciação acumulada (itens 3.6 CPC 27)."
-                              }}
-                            }}
-                          }},
-                          "analysis": {{
-                            "yoy": {{
-                              "description": "Calcular variações percentuais: ((Ano N - Ano N-1) / Ano N-1) * 100",
-                              "alerts": {{
-                                "receita_crescimento": ">20% indica expansão",
-                                "lucro_queda": ">15% sinaliza risco operacional"
-                              }}
-                            }},
-                            "comprometimento_financeiro": {{
-                              "description": "Comprometimento com despesas imobiliárias (norma locatícia / IFRS 16)",
-                              "formula": "Receita Mensal Média = Receita Bruta Anual / 12. % Comprometimento = ((Aluguel R$ {aluguel_proposto} + IPTU R$ {iptu_proposto}) / Receita Mensal Média) * 100",
-                              "alert_threshold": ">30% = risco de inadimplência"
-                            }},
-                            "liquidez": {{
-                              "formula": "Liquidez Corrente = Ativo Circulante / Passivo Circulante"
-                            }}
-                          }},
-                          "output": {{
-                            "format": "JSON válido, texto corrido sem Markdown (sem asteriscos/hashtags/traços), parágrafos limpos.",
-                            "structure": {{
-                              "alerta_divergencia_contabil": "string (motivo exato ou vazio)",
-                              "periodos": ["string (YYYY)", "string", "string"],
-                              "receita_bruta": ["string (valor)", "string", "string"],
-                              "ebitda": ["string (valor ou '...')", "string", "string"],
-                              "resultado": ["string (valor)", "string", "string"],
-                              "patrimonio_liquido": ["string", "string", "string"],
-                              "ativo_circulante": ["string", "string", "string"],
-                              "ativo_nao_circulante": ["string", "string", "string"],
-                              "passivo_circulante": ["string", "string", "string"],
-                              "passivo_nao_circulante": ["string", "string", "string"],
-                              "imobilizado": ["string", "string", "string"],
-                              "evolucao_yoy": "string (texto executivo: crescimento/queda % ano a ano de Receita, EBITDA e Lucro)",
-                              "analise_executiva": "string (parecer técnico: saúde financeira, índices de liquidez, estrutura de capital, comprometimento da renda)",
-                              "comprometimento_renda": "string (Apenas o número do cálculo de comprometimento ex: 15.5)"
-                            }}
-                          }}
+                            "alerta_divergencia_contabil": "Motivo da divergência de CNPJ/Empresa ou vazio se estiver ok",
+                            "periodos": ["2024", "2025"],
+                            "receita_bruta": ["Valor 2024", "Valor 2025"],
+                            "ebitda": ["Valor 2024", "Valor 2025"],
+                            "resultado": ["Valor 2024", "Valor 2025"],
+                            "patrimonio_liquido": ["Valor 2024", "Valor 2025"],
+                            "ativo_circulante": ["Valor 2024", "Valor 2025"],
+                            "ativo_nao_circulante": ["Valor 2024", "Valor 2025"],
+                            "passivo_circulante": ["Valor 2024", "Valor 2025"],
+                            "passivo_nao_circulante": ["Valor 2024", "Valor 2025"],
+                            "imobilizado": ["Valor 2024", "Valor 2025"],
+                            "evolucao_yoy": "Texto executivo sobre crescimento/queda ano a ano",
+                            "analise_executiva": "Os dois parágrafos da Parte 2 (Análise do Resultado Acumulado Histórico) seguindo a lógica interpretativa exigida.",
+                            "comprometimento_renda": "Apenas o número do cálculo de comprometimento (ex: 15.5)"
                         }}
-                        
-                        Retorne APENAS um JSON válido correspondente ao bloco 'output.structure' preenchido com os dados reais da análise.
                         """
                         parts = [types.Part.from_bytes(data=f.getvalue(), mime_type='application/pdf') for f in uploaded]
                         parts.append(prompt)
@@ -1438,12 +1422,15 @@ if menu == "Nova Análise":
                             contents=parts
                         )
                         st.session_state.dados.update(extrair_json_seguro(res.text))
+                        
+                        # Checklist atualizado SOMENTE se a extração der certo!
+                        st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
+                        
                         st.rerun()
                     except Exception as e: st.error(f"Erro na auditoria: {e}")
 
         d = st.session_state.dados
         
-        # Correção 1: Ajustadas as chaves para baterem com o JSON do prompt
         if "periodos" in d:
             c_tab, c_graf = st.columns([1, 1.5])
             with c_tab:
@@ -1463,7 +1450,6 @@ if menu == "Nova Análise":
                 st.markdown("#### Parecer do Auditor IA")
                 st.write(d.get("analise_executiva"))
         
-        # Correção 2: Os botões foram "desindentados" para fora do IF. Agora aparecem sempre!
         st.write("") # Respiro visual
         st.write("") # Respiro visual extra                
         
@@ -1496,7 +1482,6 @@ if menu == "Nova Análise":
                 uploaded = st.file_uploader("Upload IR Sócios (Múltiplos PDFs)", type="pdf", accept_multiple_files=True, key="up6")
                 
                 if uploaded and st.button("Analisar e Consolidar Patrimônio"):
-                    st.session_state.dados["checklist_docs"]["Passo 6 (IR Sócios)"] = [f.name for f in uploaded]
                     with st.spinner("Analisando declarações e gerando parecer final..."):
                         try:
                             prompt = f"""
@@ -1545,10 +1530,14 @@ if menu == "Nova Análise":
                             # Atualiza os dados com as duas novas chaves (resumo_patrimonial e parecer_final)
                             dados_extraidos = extrair_json_seguro(res.text)
                             st.session_state.dados.update(dados_extraidos)
+                            st.session_state.dados["checklist_docs"]["Passo 6 (IR Sócios)"] = [f.name for f in uploaded]
                             
                             # Já deixa o parecer oficial pré-preenchido com o rascunho da IA para o Passo 7
                             if "parecer_final" in dados_extraidos:
                                 st.session_state.dados["parecer_final"] = dados_extraidos["parecer_final"]
+                                
+                            # AJUSTE: Checklist atualizado SOMENTE se a extração der certo e com a nomenclatura exata do PDF
+                            st.session_state.dados["checklist_docs"]["IR Sócios"] = [f.name for f in uploaded]
                                 
                             st.rerun()
                         except Exception as e: st.error(f"Erro ao ler IR e gerar parecer: {e}")
