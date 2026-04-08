@@ -1,0 +1,10 @@
+streamlit
+google-genai
+pandas
+fpdf
+gspread
+oauth2client
+streamlit-option-menu
+plotly
+PyPDF2
+requests

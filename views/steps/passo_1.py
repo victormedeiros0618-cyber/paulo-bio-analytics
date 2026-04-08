@@ -1,0 +1,84 @@
+import streamlit as st
+from services.ai_service import AIService
+from views.components.uicomponents import show_toast, empty_state
+
+def show_passo_1():
+    d = st.session_state.dados
+    ai = AIService()
+    
+    st.markdown("""
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <h3 style="font-weight: 700; margin-bottom: 20px;">
+        <i class="bi bi-briefcase-fill" style="color: #F47920; margin-right: 8px;"></i> Proposta
+    </h3>
+    """, unsafe_allow_html=True)
+    
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        with st.container(border=True):
+            uploaded = st.file_uploader("Upload Proposta (PDF)", type="pdf", key="up1")
+            if uploaded and st.button("Extrair Proposta"):
+                st.session_state.dados["checklist_docs"]["Passo 1 (Proposta)"] = [uploaded.name]
+                with st.spinner("Lendo..."):
+                    res = ai.extrair_proposta(uploaded)
+                    if res:
+                        st.session_state.dados.update(res)
+                        show_toast("✅ Proposta extraída com sucesso!", "success")
+                        st.rerun()
+    with c2:
+        with st.container(border=True):
+            # Restaurando TODOS os campos da proposta e o controle de estado
+            st.session_state.dados["pretendente"] = st.text_input("Pretendente", d.get("pretendente", d.get("empresa", "")))
+            st.session_state.dados["atividade"] = st.text_input("Atividade a ser realizada", d.get("atividade", ""))
+            st.session_state.dados["imovel"] = st.text_input("Endereço do Imóvel", d.get("imovel", ""))
+            
+            c_p1, c_p2, c_p3 = st.columns(3)
+            st.session_state.dados["prazo"] = c_p1.text_input("Prazo", d.get("prazo", ""))
+            st.session_state.dados["data_inicio"] = c_p2.text_input("Data de Início", d.get("data_inicio", ""))
+            st.session_state.dados["carencia"] = c_p3.text_input("Carência", d.get("carencia", ""))
+            
+            c_val1, c_val2 = st.columns(2)
+            st.session_state.dados["aluguel"] = c_val1.text_input("Aluguel (R$)", d.get("aluguel", "0"))
+            st.session_state.dados["iptu"] = c_val2.text_input("IPTU (R$)", d.get("iptu", "0"))
+            
+            st.session_state.dados["garantia"] = st.text_input("Garantia Proposta", d.get("garantia", ""))
+            st.session_state.dados["condicoes_gerais"] = st.text_area("Condições Gerais (Reajustes/Multas)", d.get("condicoes_gerais", ""))
+            st.session_state.dados["info_gerais_manuais"] = st.text_area("Informações Gerais (Anotações Livres)", d.get("info_gerais_manuais", ""))
+            
+    # Restaurando a sub-seção condicional do Fiador
+    if "fiador" in str(d.get("garantia", "")).lower():
+        st.write("")
+        st.markdown("""
+        <h4 style="font-weight: 600; margin-bottom: 10px;">
+            <i class="bi bi-person-bounding-box" style="color: #F47920; margin-right: 8px;"></i> Análise do Fiador
+        </h4>
+        """, unsafe_allow_html=True)
+        
+        cf1, cf2 = st.columns([1, 2])
+        with cf1:
+            with st.container(border=True):
+                up_fiador = st.file_uploader("Upload Docs do Fiador (IR, Matrícula)", type="pdf", accept_multiple_files=True, key="up_fiador")
+                if up_fiador and st.button("Analisar Capacidade do Fiador"):
+                    st.session_state.dados["checklist_docs"]["Passo 1 (Fiador)"] = [f.name for f in up_fiador]
+                    with st.spinner("Analisando Fiador..."):
+                        res_fiador = ai.analisar_fiador(up_fiador, d.get("aluguel", "0"))
+                        st.session_state.dados.update(res_fiador)
+                        show_toast("✅ Fiador analisado!", "success")
+                        st.rerun()
+        with cf2:
+            with st.container(border=True):
+                st.session_state.dados["conclusao_fiador"] = st.text_area("Parecer sobre o Fiador", d.get("conclusao_fiador", ""), height=150)
+
+    st.write("") 
+    st.write("")                
+    c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
+    with c_b1:
+        if st.button("Voltar"): 
+            st.session_state.step = 0 
+            show_toast("↩️ Retornando ao Passo 0", "info")
+            st.rerun()         
+    with c_b2:
+        if st.button("Avançar"): 
+            st.session_state.step = 2 
+            show_toast("Passo 2 - Ficha", "info")
+            st.rerun()
