@@ -7,7 +7,6 @@ def show_passo_6():
     ai = AIService()
     
     st.markdown("""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <h3 style="font-weight: 700; margin-bottom: 20px;">
         <i class="bi bi-safe-fill" style="color: #F47920; margin-right: 8px;"></i> Garantia Física (IR Sócios)
     </h3>
@@ -20,14 +19,17 @@ def show_passo_6():
             if uploaded and st.button("Analisar Patrimônio"):
                 with st.spinner("Analisando declarações..."):
                     res = ai.analisar_patrimonio_socios(uploaded, d)
-                    st.session_state.dados.update(res)
-                    st.session_state.dados["checklist_docs"]["Passo 6 (IR Sócios)"] = [f.name for f in uploaded]
-                    show_toast("✅ Patrimônio dos sócios analisado!", "success")
-                    st.rerun()
+                    if res:
+                        st.session_state.dados.update(res)
+                        st.session_state.dados["checklist_docs"]["Passo 6 (IR Sócios)"] = [f.name for f in uploaded]
+                        show_toast("✅ Patrimônio dos sócios analisado!", "success")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível analisar o patrimônio. Verifique se os PDFs são válidos e tente novamente.")
     with c2:
         with st.container(border=True):
-            st.session_state.dados["conclusao_socio"] = st.text_area("Conclusão Patrimonial (Sócios)", d.get("conclusao_socio", ""), height=150)
-            st.session_state.dados["parecer_final"] = st.text_area("Pré-Parecer Jurídico Gerado", d.get("parecer_final", ""), height=300)
+            st.session_state.dados["conclusao_socio"] = st.text_area("Conclusão Patrimonial (Sócios) *", d.get("conclusao_socio", ""), height=150)
+            st.session_state.dados["parecer_final"] = st.text_area("Pré-Parecer Jurídico Gerado *", d.get("parecer_final", ""), height=300)
             
             st.write("") 
             st.write("")
@@ -38,7 +40,15 @@ def show_passo_6():
                     show_toast("↩️ Retornando ao Passo 5", "info")
                     st.rerun()
             with c_b2:
-                if st.button("Avançar"): 
-                    st.session_state.step = 7
-                    show_toast("Passo 7 - Parecer Final", "info")
-                    st.rerun()
+                if st.button("Avançar"):
+                    erros = []
+                    if not st.session_state.dados.get("conclusao_socio", "").strip():
+                        erros.append("Conclusão Patrimonial (Sócios)")
+                    if not st.session_state.dados.get("parecer_final", "").strip():
+                        erros.append("Pré-Parecer Jurídico Gerado")
+                    if erros:
+                        st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
+                    else:
+                        st.session_state.step = 7
+                        show_toast("Passo 7 - Parecer Final", "info")
+                        st.rerun()

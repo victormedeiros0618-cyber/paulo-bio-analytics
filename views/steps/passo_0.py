@@ -7,7 +7,6 @@ def show_passo_0():
     ai = AIService()
     
     st.markdown("""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <h3 style="font-weight: 700; margin-bottom: 20px;">
         <i class="bi bi-file-earmark-person-fill" style="color: #F47920; margin-right: 8px;"></i> Contrato Social e Aditivos
     </h3>
@@ -21,15 +20,18 @@ def show_passo_0():
                 st.session_state.dados["checklist_docs"]["Passo 0 (Contrato Social)"] = [f.name for f in uploaded]
                 with st.spinner("Analisando Documentos..."):
                     res = ai.extrair_contrato(uploaded)
-                    st.session_state.dados.update(res)
-                    show_toast("✅ Dados extraídos com sucesso!", "success")
-                    st.rerun()
+                    if res:
+                        st.session_state.dados.update(res)
+                        show_toast("✅ Dados extraídos com sucesso!", "success")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível extrair os dados. Verifique se o PDF é válido e tente novamente.")
     with c2:
         with st.container(border=True):
             if not d.get("empresa"):
                 empty_state("📄", "Nenhum dado carregado", "Preencha os campos abaixo ou faça upload do contrato para auto-preenchimento.")
-            st.session_state.dados["empresa"] = st.text_input("Razão Social", d.get("empresa", ""))
-            st.session_state.dados["cnpj"] = st.text_input("CNPJ", d.get("cnpj", ""))
+            st.session_state.dados["empresa"] = st.text_input("Razão Social *", d.get("empresa", ""))
+            st.session_state.dados["cnpj"] = st.text_input("CNPJ *", d.get("cnpj", ""))
             
             c_ab, c_cap = st.columns(2)
             st.session_state.dados["data_abertura"] = c_ab.text_input("Data Abertura / Idade", d.get("data_abertura", ""))
@@ -45,6 +47,14 @@ def show_passo_0():
             c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])               
             with c_b2:
                 if st.button("Avançar"):
-                    st.session_state.step = 1
-                    show_toast("Passo 1 - Proposta", "info")
-                    st.rerun()
+                    erros = []
+                    if not st.session_state.dados.get("empresa", "").strip():
+                        erros.append("Razão Social")
+                    if not st.session_state.dados.get("cnpj", "").strip():
+                        erros.append("CNPJ")
+                    if erros:
+                        st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
+                    else:
+                        st.session_state.step = 1
+                        show_toast("Passo 1 - Proposta", "info")
+                        st.rerun()

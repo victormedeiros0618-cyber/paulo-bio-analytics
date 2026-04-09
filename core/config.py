@@ -7,6 +7,10 @@ COR_TERCIARIA = "#7F8C8D"    # Cinza
 
 def aplicar_estilo():
     """Injeta o CSS Neo-Brutalista para visual Premium de Auditoria."""
+    st.markdown(
+        '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">',
+        unsafe_allow_html=True
+    )
     st.markdown(f"""
     <style>
         /* ═══════════════════════════════════════════════════
@@ -278,10 +282,13 @@ def aplicar_estilo():
            VEREDITO CARDS
         ═══════════════════════════════════════════════════ */
         .veredito-card {{
-            padding: 24px;
+            padding: 20px 24px;
             border-radius: 2px;
             border-left: 6px solid;
             margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
         }}
         .veredito-card.aprovado {{
             background-color: rgba(39, 174, 96, 0.1);
@@ -295,9 +302,21 @@ def aplicar_estilo():
             background-color: rgba(231, 76, 60, 0.1);
             border-color: #E74C3C;
         }}
+        .veredito-icon {{
+            font-size: 38px;
+            line-height: 1;
+            flex-shrink: 0;
+        }}
+        .veredito-card.aprovado .veredito-icon {{ color: #27AE60 !important; }}
+        .veredito-card.ressalva .veredito-icon {{ color: #F1C40F !important; }}
+        .veredito-card.reprovado .veredito-icon {{ color: #E74C3C !important; }}
+        .veredito-body {{
+            display: flex;
+            flex-direction: column;
+        }}
         .veredito-label {{
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.01em;
             color: #FFFFFF !important;
@@ -442,7 +461,7 @@ def aplicar_estilo():
         [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 {{ color: #0F1923 !important; }}
         [data-theme="light"] p, [data-theme="light"] span, [data-theme="light"] label {{ color: #2C3E50 !important; }}
         [data-theme="light"] [data-testid="stSidebar"] {{ background-color: #FFFFFF !important; }}
-        [data-theme="light"] [data-testid="stVerticalBlockBorderWrapper] > div {{ background-color: #FFFFFF !important; border-color: rgba(244, 121, 32, 0.15) !important; }}
+        [data-theme="light"] [data-testid="stVerticalBlockBorderWrapper"] > div {{ background-color: #FFFFFF !important; border-color: rgba(244, 121, 32, 0.15) !important; }}
         [data-theme="light"] input, [data-theme="light"] textarea {{ background-color: #FFFFFF !important; color: #0F1923 !important; border-color: rgba(244, 121, 32, 0.4) !important; }}
     </style>
     """, unsafe_allow_html=True)

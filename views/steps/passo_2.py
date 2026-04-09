@@ -7,7 +7,6 @@ def show_passo_2():
     ai = AIService()
     
     st.markdown("""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <h3 style="font-weight: 700; margin-bottom: 20px;">
         <i class="bi bi-card-checklist" style="color: #F47920; margin-right: 8px;"></i> Ficha Cadastral
     </h3>
@@ -21,9 +20,12 @@ def show_passo_2():
                 st.session_state.dados["checklist_docs"]["Passo 2 (Ficha Cadastral)"] = [uploaded.name]
                 with st.spinner("Lendo..."):
                     res = ai.extrair_referencias(uploaded)
-                    st.session_state.dados.update(res)
-                    show_toast("✅ Referências extraídas!", "success")
-                    st.rerun()
+                    if res:
+                        st.session_state.dados.update(res)
+                        show_toast("✅ Referências extraídas!", "success")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível extrair as referências. Verifique se o PDF é válido e tente novamente.")
     with c2:
         with st.container(border=True):
             st.session_state.dados["ref_locaticias"] = st.text_area("Referências Locatícias", d.get("ref_locaticias", ""))

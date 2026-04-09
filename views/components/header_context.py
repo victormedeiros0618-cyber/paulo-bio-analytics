@@ -46,7 +46,6 @@ def render_dashboard_head():
 </div>"""
 
     st.markdown(f"""
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 <div class="ctx-bar">
 <div class="ctx-item">
 <span class="ctx-label"><i class="bi bi-building"></i> Empresa</span>

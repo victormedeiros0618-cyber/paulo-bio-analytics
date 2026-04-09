@@ -7,7 +7,6 @@ def show_passo_4():
     ai = AIService()
     
     st.markdown("""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <h3 style="font-weight: 700; margin-bottom: 20px;">
         <i class="bi bi-scales" style="color: #F47920; margin-right: 8px;"></i> Certidões Jurídicas
     </h3>
@@ -19,14 +18,17 @@ def show_passo_4():
     c1, c2 = st.columns([1, 2])
     with c1:
         with st.container(border=True):
-            uploaded = st.file_uploader("Upload Lote de Certidões", accept_multiple_files=True, key="up4")
+            uploaded = st.file_uploader("Upload Lote de Certidões", type="pdf", accept_multiple_files=True, key="up4")
             if uploaded and st.button("Auditar Certidões"):
                 st.session_state.dados["checklist_docs"]["Passo 4 (Certidões)"] = [f.name for f in uploaded]
                 with st.spinner("Lendo certidões..."):
                     res = ai.auditar_certidoes(uploaded, d.get('empresa', ''), d.get('cnpj', ''))
-                    st.session_state.dados.update(res)
-                    show_toast("✅ Certidões auditadas!", "success")
-                    st.rerun()
+                    if res:
+                        st.session_state.dados.update(res)
+                        show_toast("✅ Certidões auditadas!", "success")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível auditar as certidões. Verifique se os PDFs são válidos e tente novamente.")
     with c2:
         with st.container(border=True):
             st.session_state.dados["resumo_certidoes"] = st.text_area("Apontamentos Jurídicos", d.get("resumo_certidoes", ""), height=250)
@@ -40,7 +42,7 @@ def show_passo_4():
                     show_toast("↩️ Retornando ao Passo 3", "info")
                     st.rerun()
             with c_b2:
-                if st.button("Avançar"): 
+                if st.button("Avançar"):
                     st.session_state.step = 5
                     show_toast("Passo 5 - Contábil", "info")
                     st.rerun()

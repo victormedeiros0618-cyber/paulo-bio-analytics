@@ -239,7 +239,8 @@ class PDFExecutivo(FPDF):
         self.set_font(CFG.FONT, "", CFG.FONT_SIZE_BODY)
         self.set_text_color(80, 80, 80)
         # multi_cell centralizado para suportar endereços longos sem quebrar o layout da capa
-        self.multi_cell(0, 6, limpa_pdf(f"Imóvel: {imovel_nome}"), ln=1, align="C")
+        self.multi_cell(0, 6, limpa_pdf(f"Imóvel: {imovel_nome}"), align="C")
+        self.ln(1)
 
         self.set_y(220)
         self.set_font(CFG.FONT, "B", 12)

@@ -27,17 +27,24 @@ def show_passo_5():
     ai = AIService()
 
     st.markdown("""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <h3 style="font-family:'Space Grotesk',sans-serif; font-weight:700; margin-bottom:20px;">
         <i class="bi bi-bar-chart-fill" style="color:#F47920; margin-right:8px;"></i> Auditoria Contábil
     </h3>
     """, unsafe_allow_html=True)
 
+    # Mensagens persistidas via session_state (sobrevivem ao st.rerun)
+    if st.session_state.get('_contabil_erro'):
+        st.error("Não foi possível realizar a auditoria contábil. Verifique se os PDFs são válidos e tente novamente.")
+        del st.session_state['_contabil_erro']
+    if st.session_state.get('_contabil_aviso'):
+        st.warning(st.session_state['_contabil_aviso'])
+        del st.session_state['_contabil_aviso']
+
     if d.get("alerta_divergencia_contabil"):
         st.error(f"🚨 **ALERTA DE DIVERGÊNCIA:** {d.get('alerta_divergencia_contabil')}")
 
     with st.container(border=True):
-        uploaded = st.file_uploader("PDFs Contábeis (Balanços e DREs)", accept_multiple_files=True, key="up5")
+        uploaded = st.file_uploader("PDFs Contábeis (Balanços e DREs)", type="pdf", accept_multiple_files=True, key="up5")
         if uploaded and st.button("Executar Auditoria Avançada"):
             import time
             msgs = [
@@ -59,14 +66,21 @@ def show_passo_5():
                         d.get('aluguel', 0),
                         d.get('iptu', 0)
                     )
-                    st.session_state.dados.update(res)
-                    st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
+                    if res:
+                        st.session_state.dados.update(res)
+                        st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
+                        if not (res.get("receita_bruta") or res.get("analise_executiva")):
+                            st.session_state['_contabil_aviso'] = "Análise concluída, mas alguns dados financeiros não foram identificados nos documentos. Verifique se os PDFs contêm Balanço e DRE."
             placeholder.empty()
-            show_toast("✅ Auditoria contábil concluída!", "success")
-            st.rerun()
+            if res:
+                show_toast("✅ Auditoria contábil concluída!", "success")
+                st.rerun()
+            else:
+                st.session_state['_contabil_erro'] = True
+                st.rerun()
 
     # ── VISUALIZAÇÃO FINANCEIRA (Matriz e Gráfico) ────────────────
-    if "periodos" in d:
+    if "periodos" in d or d.get("receita_bruta") or d.get("analise_executiva"):
         periodos  = d.get("periodos", [])
         receitas  = d.get("receita_bruta", [])
         lucros    = d.get("resultado", [])
@@ -131,22 +145,42 @@ def show_passo_5():
                 show_toast("↩️ Retornando ao Passo 4", "info")
                 st.rerun()
         with c_b2:
-            if st.button("Avançar"): 
-                st.session_state.step = 6
-                show_toast("Passo 6 - IR", "info")
-                st.rerun()
+            if st.button("Avançar"):
+                erros = []
+                rb = st.session_state.dados.get("receita_bruta", "")
+                if (isinstance(rb, list) and len(rb) == 0) or (not isinstance(rb, list) and not str(rb).strip()):
+                    erros.append("Receita Bruta")
+                res_val = st.session_state.dados.get("resultado", "")
+                if (isinstance(res_val, list) and len(res_val) == 0) or (not isinstance(res_val, list) and not str(res_val).strip()):
+                    erros.append("Resultado")
+                if erros:
+                    st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
+                else:
+                    st.session_state.step = 6
+                    show_toast("Passo 6 - IR", "info")
+                    st.rerun()
 
     else:
         # Botões de nav mesmo quando ainda não há dados
         st.write("")
         c_b1, c_space, c_b2 = st.columns([1.5, 5, 1.5])
         with c_b1:
-            if st.button("Voltar"): 
+            if st.button("Voltar"):
                 st.session_state.step = 4
                 show_toast("↩️ Retornando ao Passo 4", "info")
                 st.rerun()
         with c_b2:
-            if st.button("Avançar"): 
-                st.session_state.step = 6
-                show_toast("Passo 6 - IR", "info")
-                st.rerun()
+            if st.button("Avançar"):
+                erros = []
+                rb = st.session_state.dados.get("receita_bruta", "")
+                if (isinstance(rb, list) and len(rb) == 0) or (not isinstance(rb, list) and not str(rb).strip()):
+                    erros.append("Receita Bruta")
+                res_val = st.session_state.dados.get("resultado", "")
+                if (isinstance(res_val, list) and len(res_val) == 0) or (not isinstance(res_val, list) and not str(res_val).strip()):
+                    erros.append("Resultado")
+                if erros:
+                    st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
+                else:
+                    st.session_state.step = 6
+                    show_toast("Passo 6 - IR", "info")
+                    st.rerun()

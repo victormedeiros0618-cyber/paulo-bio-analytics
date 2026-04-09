@@ -6,8 +6,9 @@ def render_document_checklist():
     Ajuda o analista a ter certeza de que não esqueceu nada antes do parecer.
     """
     with st.sidebar:
-        # --- Botão Debug/Mock ---
-        if st.button("🛠️ Injetar Dados Mock (Teste PDF)", help="Preenche todo o relatório automaticamente para testar o PDF."):
+        # --- Botão Debug/Mock (apenas em ambiente de desenvolvimento) ---
+        debug_mode = st.secrets.get("DEBUG_MODE", False)
+        if debug_mode and st.button("🛠️ Injetar Dados Mock (Teste PDF)", help="Preenche todo o relatório automaticamente para testar o PDF."):
             if "dados" not in st.session_state:
                 st.session_state.dados = {}
             st.session_state.dados.update({
@@ -65,34 +66,3 @@ def render_document_checklist():
             st.session_state.step = 7
             st.rerun()
 
-    if "dados" not in st.session_state or "checklist_docs" not in st.session_state.dados:
-        return
-
-    checklist = st.session_state.dados["checklist_docs"]
-    
-    # Mapeamento amigável de nomes de passos
-    passos_obrigatorios = [
-        "Passo 0 (Contrato)",
-        "Passo 1 (Proposta)",
-        "Passo 2 (Ficha)",
-        "Passo 3 (Serasa)",
-        "Passo 5 (Contábil)",
-        "Passo 6 (IR)"
-    ]
-
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown("### 📋 Checklist de Docs")
-        
-        for passo in passos_obrigatorios:
-            arquivos = checklist.get(passo, [])
-            if arquivos:
-                st.markdown(f"**✅ {passo}**")
-                for f in arquivos[:2]: # Mostra os 2 primeiros nomes de arquivo
-                    st.caption(f"└ {f}")
-                if len(arquivos) > 2:
-                    st.caption(f"└ ... (+{len(arquivos)-2})")
-            else:
-                st.markdown(f"**⚪ {passo}**")
-        
-        st.markdown("---")

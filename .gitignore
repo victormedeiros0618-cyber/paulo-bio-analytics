@@ -28,6 +28,7 @@ ENV/
 
 # Streamlit
 .streamlit/config.toml
+.streamlit/secrets.toml
 root/.streamlit/config.toml
 
 # AI Kit / Agent

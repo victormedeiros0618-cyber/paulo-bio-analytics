@@ -30,12 +30,20 @@ def safe_float(valor):
 
 def extrair_json_seguro(texto):
     """Localiza e extrai o primeiro bloco JSON de uma string de texto da IA."""
+    # Tenta extrair de bloco markdown ```json ... ``` primeiro
+    try:
+        match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', texto, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+    except:
+        pass
+    # Fallback: busca raw entre o primeiro { e o último }
     try:
         inicio = texto.find('{')
         fim = texto.rfind('}') + 1
-        if inicio != -1 and fim != -1: 
+        if inicio != -1 and fim > inicio:
             return json.loads(texto[inicio:fim])
-    except: 
+    except:
         pass
     return {}
 

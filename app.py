@@ -2,7 +2,6 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from core.config import aplicar_estilo, COR_PRIMARIA
 from views.components.header_context import render_dashboard_head
-from views.components.uicomponents import show_toast
 
 # Import dos Passos Modularizados
 from views.steps.passo_0 import show_passo_0
@@ -22,24 +21,33 @@ st.set_page_config(
 )
 aplicar_estilo()
 
-# --- 2. INICIALIZAÇÃO DE ESTADO ---
-if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+# --- 2. LOGIN GATE ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    from views.login import show_login
+    show_login()
+    st.stop()
+
+# --- 3. INICIALIZAÇÃO DE ESTADO ---
 if 'step' not in st.session_state: st.session_state.step = 0
 if 'dados' not in st.session_state:
     st.session_state.dados = {"checklist_docs": {}}
 if 'tema_claro' not in st.session_state:
-    st.session_state.tema_claro = False
+    st.session_state.tema_claro = st.query_params.get("tema") == "claro"
+if 'usuario_logado' not in st.session_state: st.session_state.usuario_logado = "analista"
+if 'email_usuario' not in st.session_state: st.session_state.email_usuario = ""
 
 
 
 # --- 3. MENU LATERAL ---
 with st.sidebar:
     # Centralização natural do Logo sem quebrar rotas estáticas
-    colA, colB, colC = st.columns([1, 4, 1])
+    colA, colB, colC = st.columns([1, 3, 1])
     with colB:
         st.image("logoOPB.png", use_container_width=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    
+
     tema_claro = st.session_state.get("tema_claro", False)
     
     # Cores dinâmicas para o Option Menu
@@ -58,13 +66,12 @@ with st.sidebar:
         }
     )
 
-    st.divider()
-    
     # Toggle Tema Claro/Escuro
     st.markdown('<i class="bi bi-moon-stars" style="color:#F47920; margin-right:8px;"></i>**Visualização**', unsafe_allow_html=True)
     tema_novo = st.toggle("Modo Claro", value=tema_claro)
     if tema_novo != tema_claro:
         st.session_state.tema_claro = tema_novo
+        st.query_params["tema"] = "claro" if tema_novo else "escuro"
         st.rerun()
     
     # Aplica CSS do tema com !important para sobrescrever config.py
@@ -164,10 +171,57 @@ with st.sidebar:
 
     
     st.divider()
-    if st.button("↺  Reiniciar Fluxo", use_container_width=True):
-        st.session_state.dados = {"checklist_docs": {}}
-        st.session_state.step = 0
-        st.rerun()
+
+    nome_usuario = st.session_state.get("usuario_logado", "")
+    st.markdown(f"""
+    <style>
+        .sidebar-action-btn button {{
+            height: 32px !important;
+            padding: 0 10px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            border-radius: 2px !important;
+        }}
+    </style>
+    <div style="
+        display:flex; align-items:center; gap:10px;
+        background:rgba(244,121,32,0.08);
+        border:1px solid rgba(244,121,32,0.25);
+        border-radius:2px;
+        padding:8px 10px;
+        margin-bottom:8px;
+    ">
+        <div style="
+            width:30px; height:30px; border-radius:2px;
+            background:#F47920;
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0;
+        ">
+            <i class="bi bi-person-fill" style="color:#0F1923; font-size:15px;"></i>
+        </div>
+        <div>
+            <div style="font-size:12px; font-weight:600; color:#F47920; line-height:1.2;">{nome_usuario}</div>
+            <div style="font-size:11px; color:#7F8C8D; line-height:1.2;">Analista</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_rst, col_sair = st.columns(2)
+    with col_rst:
+        st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
+        if st.button("Reiniciar", use_container_width=True):
+            st.session_state.dados = {"checklist_docs": {}}
+            st.session_state.step = 0
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_sair:
+        st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
+        if st.button("↪ Sair", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.usuario_logado = ""
+            st.session_state.email_usuario = ""
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 from views.components.checklist import render_document_checklist
 
@@ -243,6 +297,6 @@ elif menu == "Dashboard":
     from views.dashboard import show_dashboard
     show_dashboard()
 
-else:
-    st.title(menu)
-    st.write(f"A funcionalidade {menu} será implementada em breve.")
+elif menu == "Configurações":
+    st.title("Configurações")
+    st.info("Em desenvolvimento.")
