@@ -1,13 +1,17 @@
+import base64
 import streamlit as st
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from utils.formatters import extrair_json_seguro
 
 class AIService:
     def __init__(self):
-        self.api_key = st.secrets["GOOGLE_API_KEY"]
-        self.client = genai.Client(api_key=self.api_key)
-        self.model = 'gemini-2.5-flash'
+        self.api_key = st.secrets["OPENROUTER_API_KEY"]
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=self.api_key,
+            timeout=120.0,
+        )
+        self.model = "google/gemini-2.5-flash"
 
     def _generate_content(self, prompt, files=None):
         parts = []
@@ -15,33 +19,44 @@ class AIService:
             for f in files:
                 f.seek(0)
                 content = f.read()
-                
+
                 if not content:
                     st.warning(f"Arquivo {f.name} está vazio.")
                     continue
-                
+
                 if len(content) > 20 * 1024 * 1024:
                     st.warning(f"Arquivo {f.name} excede 20MB. Ignorando.")
                     continue
-                
+
                 try:
-                    parts.append(types.Part.from_bytes(data=content, mime_type='application/pdf'))
+                    b64 = base64.standard_b64encode(content).decode("utf-8")
+                    parts.append({
+                        "type": "file",
+                        "file": {
+                            "filename": f.name,
+                            "file_data": f"data:application/pdf;base64,{b64}",
+                        },
+                    })
                 except Exception as e:
                     st.warning(f"Não foi possível processar {f.name}: {e}")
                     continue
-                    
+
         if not parts:
             st.error("Nenhum arquivo válido para análise.")
             return {}
-            
-        parts.append(prompt)
-        
+
+        parts.append({"type": "text", "text": prompt})
+
         try:
-            res = self.client.models.generate_content(model=self.model, contents=parts)
-            if not res.text:
+            res = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": parts}],
+            )
+            text = res.choices[0].message.content
+            if not text:
                 st.warning("A IA não retornou conteúdo.")
                 return {}
-            return extrair_json_seguro(res.text)
+            return extrair_json_seguro(text)
         except Exception as e:
             erro_str = str(e)
             if "clipboard" in erro_str.lower() or "image" in erro_str.lower():
