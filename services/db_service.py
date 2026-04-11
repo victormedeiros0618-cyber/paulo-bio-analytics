@@ -4,6 +4,10 @@ import requests
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from core.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class DBService:
     def __init__(self):
@@ -56,14 +60,18 @@ class DBService:
                 "dados": dados
             }
             
+            logger.info("Salvando análise no Supabase: empresa=%s status=%s", payload.get("empresa"), decisao)
             response = requests.post(self.rest_url, headers=headers, json=payload)
-            
+
             if response.status_code in [200, 201]:
+                logger.info("Análise salva com sucesso no Supabase.")
                 return True
             else:
+                logger.error("Erro Supabase (%d): %s", response.status_code, response.text)
                 st.error(f"Erro na API do Supabase ({response.status_code}): {response.text}")
                 return False
         except Exception as e:
+            logger.error("Erro de conexão com Supabase: %s", e)
             st.error(f"Erro de conexão com Supabase: {e}")
             return False
 
@@ -79,9 +87,13 @@ class DBService:
             url = f"{self.rest_url}?select=*&order=created_at.desc&limit={limite}"
             res = requests.get(url, headers=headers)
             if res.status_code == 200:
-                return res.json()
+                dados = res.json()
+                logger.info("Listagem Supabase: %d análises retornadas.", len(dados))
+                return dados
+            logger.warning("Listagem Supabase retornou status %d.", res.status_code)
             return []
-        except:
+        except Exception as e:
+            logger.error("Erro ao listar análises do Supabase: %s", e)
             return []
 
     def _salvar_gsheets(self, dados, decisao):
@@ -97,7 +109,9 @@ class DBService:
             dados_json = json.dumps(dados) 
             
             planilha.append_row([data_atual, empresa, decisao, dados_json, ""])
+            logger.info("Análise salva no Google Sheets: empresa=%s", empresa)
             return True
         except Exception as e:
+            logger.error("Erro no Google Sheets: %s", e)
             st.error(f"Erro no GSheets: {e}")
             return False

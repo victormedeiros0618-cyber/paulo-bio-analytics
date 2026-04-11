@@ -2,6 +2,10 @@ import base64
 import streamlit as st
 from openai import OpenAI
 from utils.formatters import extrair_json_seguro
+from core.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class AIService:
     def __init__(self):
@@ -21,10 +25,12 @@ class AIService:
                 content = f.read()
 
                 if not content:
+                    logger.warning("Arquivo %s está vazio — ignorado.", f.name)
                     st.warning(f"Arquivo {f.name} está vazio.")
                     continue
 
                 if len(content) > 20 * 1024 * 1024:
+                    logger.warning("Arquivo %s excede 20MB (%d bytes) — ignorado.", f.name, len(content))
                     st.warning(f"Arquivo {f.name} excede 20MB. Ignorando.")
                     continue
 
@@ -37,31 +43,39 @@ class AIService:
                             "file_data": f"data:application/pdf;base64,{b64}",
                         },
                     })
+                    logger.debug("Arquivo %s codificado (%d bytes).", f.name, len(content))
                 except Exception as e:
+                    logger.error("Falha ao processar arquivo %s: %s", f.name, e)
                     st.warning(f"Não foi possível processar {f.name}: {e}")
                     continue
 
         if not parts:
+            logger.error("Nenhum arquivo válido para análise.")
             st.error("Nenhum arquivo válido para análise.")
             return {}
 
         parts.append({"type": "text", "text": prompt})
 
         try:
+            logger.info("Enviando requisição para modelo %s (%d partes).", self.model, len(parts))
             res = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": parts}],
             )
             text = res.choices[0].message.content
             if not text:
+                logger.warning("IA retornou resposta vazia.")
                 st.warning("A IA não retornou conteúdo.")
                 return {}
+            logger.info("Resposta recebida da IA (%d caracteres).", len(text))
             return extrair_json_seguro(text)
         except Exception as e:
             erro_str = str(e)
             if "clipboard" in erro_str.lower() or "image" in erro_str.lower():
+                logger.error("Erro de formato de PDF na IA: %s", erro_str)
                 st.error("Erro ao processar PDF: formato incompatível. Verifique se os arquivos são PDFs válidos.")
             else:
+                logger.error("Erro na chamada da IA: %s", erro_str)
                 st.error(f"Erro na IA: {erro_str}")
             return {}
 

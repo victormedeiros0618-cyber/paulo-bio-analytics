@@ -1,7 +1,8 @@
 streamlit
 openai
 pandas
-fpdf
+fpdf2
+pydantic
 gspread
 oauth2client
 streamlit-option-menu
