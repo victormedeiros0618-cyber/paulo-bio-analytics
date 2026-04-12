@@ -1,4 +1,5 @@
 streamlit
+sentry-sdk[pure_eval]
 openai
 pandas
 fpdf2

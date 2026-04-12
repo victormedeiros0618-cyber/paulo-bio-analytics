@@ -1,6 +1,10 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 from core.config import aplicar_estilo, COR_PRIMARIA
+from core.sentry import init_sentry
+
+# Inicializa Sentry o mais cedo possível (antes de qualquer view)
+init_sentry()
 from views.components.header_context import render_dashboard_head
 
 # Import dos Passos Modularizados
