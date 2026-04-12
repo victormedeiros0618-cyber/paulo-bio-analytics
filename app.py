@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from core.config import aplicar_estilo, COR_PRIMARIA
 from core.sentry import init_sentry
+from core.cache import clear_cache
 
 # Inicializa Sentry o mais cedo possível (antes de qualquer view)
 init_sentry()
@@ -210,13 +211,19 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    col_rst, col_sair = st.columns(2)
+    col_rst, col_cache, col_sair = st.columns(3)
     with col_rst:
         st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
         if st.button("Reiniciar", use_container_width=True):
             st.session_state.dados = {"checklist_docs": {}}
             st.session_state.step = 0
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_cache:
+        st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
+        if st.button("♻️ Cache", use_container_width=True, help="Limpar cache de análises para reprocessar os PDFs"):
+            clear_cache()
+            st.toast("Cache limpo.")
         st.markdown('</div>', unsafe_allow_html=True)
     with col_sair:
         st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)

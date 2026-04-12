@@ -4,6 +4,7 @@ from openai import OpenAI
 from utils.formatters import extrair_json_seguro
 from core.logger import get_logger
 from core.prompt_loader import get_prompt
+from core.cache import build_cache_key, get_cached, set_cached
 
 logger = get_logger(__name__)
 
@@ -80,29 +81,41 @@ class AIService:
                 st.error(f"Erro na IA: {erro_str}")
             return {}
 
+    def _cached_generate(self, passo: str, files: list, prompt: str, **cache_kwargs) -> dict:
+        """Wrapper com cache: verifica hit antes de chamar a IA."""
+        key = build_cache_key(passo, files, **cache_kwargs)
+        cached = get_cached(key)
+        if cached is not None:
+            st.info("♻️ Resultado carregado do cache (mesmo PDF já analisado).")
+            return cached
+        result = self._generate_content(prompt, files)
+        if result:
+            set_cached(key, result)
+        return result
+
     def extrair_contrato(self, files):
         prompt = get_prompt("passo_0_contrato")
-        return self._generate_content(prompt, files)
+        return self._cached_generate("passo_0_contrato", files, prompt)
 
     def extrair_proposta(self, file):
         prompt = get_prompt("passo_1_proposta")
-        return self._generate_content(prompt, [file])
+        return self._cached_generate("passo_1_proposta", [file], prompt)
 
     def analisar_fiador(self, files, aluguel):
         prompt = get_prompt("passo_2_fiador", aluguel=str(aluguel))
-        return self._generate_content(prompt, files)
+        return self._cached_generate("passo_2_fiador", files, prompt, aluguel=str(aluguel))
 
     def extrair_referencias(self, file):
         prompt = get_prompt("passo_2_referencias")
-        return self._generate_content(prompt, [file])
+        return self._cached_generate("passo_2_referencias", [file], prompt)
 
     def mapear_serasa(self, files, empresa, cnpj):
         prompt = get_prompt("passo_3_serasa", empresa=str(empresa), cnpj=str(cnpj))
-        return self._generate_content(prompt, files)
+        return self._cached_generate("passo_3_serasa", files, prompt, empresa=str(empresa), cnpj=str(cnpj))
 
     def auditar_certidoes(self, files, empresa, cnpj):
         prompt = get_prompt("passo_4_certidoes", empresa=str(empresa), cnpj=str(cnpj))
-        return self._generate_content(prompt, files)
+        return self._cached_generate("passo_4_certidoes", files, prompt, empresa=str(empresa), cnpj=str(cnpj))
 
     def auditar_contabil(self, files, empresa, cnpj, aluguel, iptu):
         prompt = get_prompt(
@@ -112,7 +125,11 @@ class AIService:
             aluguel=str(aluguel),
             iptu=str(iptu),
         )
-        return self._generate_content(prompt, files)
+        return self._cached_generate(
+            "passo_5_contabil", files, prompt,
+            empresa=str(empresa), cnpj=str(cnpj),
+            aluguel=str(aluguel), iptu=str(iptu),
+        )
 
     def analisar_patrimonio_socios(self, files, d):
         _empresa      = d.get('empresa', 'não informado')
@@ -149,4 +166,8 @@ class AIService:
             ult_receita=str(_ult_receita),
             ult_periodo=str(_ult_periodo),
         )
-        return self._generate_content(prompt, files)
+        return self._cached_generate(
+            "passo_6_patrimonio", files, prompt,
+            empresa=str(_empresa), aluguel=str(_aluguel),
+            score_serasa=str(_score), ult_periodo=str(_ult_periodo),
+        )
