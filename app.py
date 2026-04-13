@@ -180,34 +180,29 @@ with st.sidebar:
     nome_usuario = st.session_state.get("usuario_logado", "")
     st.markdown(f"""
     <style>
-        /* Botões da sidebar — mesmo estilo do cache (sutil, uniforme) */
-        .sidebar-action-btn button {{
+        /* Botões da sidebar — especificidade alta para sobrescrever .stButton > button do config.py */
+        .sidebar-action-btn .stButton > button,
+        .sidebar-cache-btn .stButton > button {{
             height: 30px !important;
             padding: 0 10px !important;
             font-size: 11px !important;
             font-weight: 400 !important;
+            letter-spacing: 0 !important;
+            text-transform: none !important;
             border-radius: 2px !important;
             background-color: transparent !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
             color: #7F8C8D !important;
+            box-shadow: none !important;
+            transform: none !important;
         }}
-        .sidebar-action-btn button:hover {{
+        .sidebar-action-btn .stButton > button:hover,
+        .sidebar-cache-btn .stButton > button:hover {{
+            background-color: rgba(244,121,32,0.08) !important;
             border-color: rgba(244,121,32,0.4) !important;
             color: #F47920 !important;
-        }}
-        /* Botão Limpar Cache — full width com estilo mais sutil */
-        .sidebar-cache-btn button {{
-            height: 30px !important;
-            font-size: 11px !important;
-            font-weight: 400 !important;
-            border-radius: 2px !important;
-            background-color: transparent !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
-            color: #7F8C8D !important;
-        }}
-        .sidebar-cache-btn button:hover {{
-            border-color: rgba(244,121,32,0.4) !important;
-            color: #F47920 !important;
+            transform: none !important;
+            box-shadow: none !important;
         }}
     </style>
     <div style="
