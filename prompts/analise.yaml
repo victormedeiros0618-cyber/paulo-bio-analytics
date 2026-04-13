@@ -97,14 +97,22 @@ passo_5_contabil: |
   - Identifique a reversão em 2025 com o Lucro do Exercício (valor exato).
   - Conclua que o lucro de 2025 absorveu o prejuízo histórico, tornando o PL positivo.
 
-  Retorne SOMENTE o JSON:
+  Retorne SOMENTE o JSON com estas chaves exatas (todas obrigatórias):
   {{
       "periodos": ["2024", "2025"],
       "receita_bruta": ["R$ ...", "R$ ..."],
       "resultado": ["R$ ...", "R$ ..."],
-      "analise_executiva": "Tabela consolidada e análise técnica do resultado acumulado.",
+      "patrimonio_liquido": ["R$ ...", "R$ ..."],
+      "ativo_circulante": ["R$ ...", "R$ ..."],
+      "ativo_nao_circulante": ["R$ ...", "R$ ..."],
+      "passivo_circulante": ["R$ ...", "R$ ..."],
+      "passivo_nao_circulante": ["R$ ...", "R$ ..."],
+      "imobilizado": ["R$ ...", "R$ ..."],
+      "analise_executiva": "Análise técnica do resultado acumulado e parecer financeiro.",
       "alerta_divergencia_contabil": ""
   }}
+  IMPORTANTE: Preencha TODOS os campos patrimoniais com os valores exatos do Balanço.
+  Se um campo não estiver disponível, use "N/D" como valor.
   Retorne SOMENTE o JSON.
 
 passo_6_patrimonio: |
