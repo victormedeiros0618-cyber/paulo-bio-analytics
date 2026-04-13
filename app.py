@@ -180,12 +180,36 @@ with st.sidebar:
     nome_usuario = st.session_state.get("usuario_logado", "")
     st.markdown(f"""
     <style>
+        /* Botões da sidebar — altura, fonte e borda uniformes */
         .sidebar-action-btn button {{
-            height: 32px !important;
+            height: 34px !important;
             padding: 0 10px !important;
             font-size: 12px !important;
-            font-weight: 500 !important;
+            font-weight: 600 !important;
             border-radius: 2px !important;
+            /* Sobrescreve cor laranja do botão primário padrão */
+            background-color: rgba(255,255,255,0.06) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            color: #C8D6E5 !important;
+        }}
+        .sidebar-action-btn button:hover {{
+            background-color: rgba(244,121,32,0.15) !important;
+            border-color: #F47920 !important;
+            color: #F47920 !important;
+        }}
+        /* Botão Limpar Cache — full width com estilo mais sutil */
+        .sidebar-cache-btn button {{
+            height: 30px !important;
+            font-size: 11px !important;
+            font-weight: 400 !important;
+            border-radius: 2px !important;
+            background-color: transparent !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            color: #7F8C8D !important;
+        }}
+        .sidebar-cache-btn button:hover {{
+            border-color: rgba(244,121,32,0.4) !important;
+            color: #F47920 !important;
         }}
     </style>
     <div style="
@@ -229,8 +253,8 @@ with st.sidebar:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Linha 2: Cache — full width, menos destaque visual
-    st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
+    # Linha 2: Cache — full width, estilo sutil
+    st.markdown('<div class="sidebar-cache-btn">', unsafe_allow_html=True)
     if st.button(
         "↺  Limpar Cache",
         use_container_width=True,

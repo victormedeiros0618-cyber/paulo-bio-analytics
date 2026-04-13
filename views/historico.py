@@ -80,8 +80,33 @@ def show_historico():
     df = _preparar_df(registros)
 
     # ── FILTROS ───────────────────────────────────────────────────────────────
-    with st.expander("🔍 Filtros", expanded=True):
-        col_busca, col_status, col_analista = st.columns([3, 2, 2])
+    with st.expander(
+        "\u00a0\u00a0Filtros",  # espaço para o ícone BI renderizado via CSS no label
+        expanded=True,
+    ):
+        # Ícone Bootstrap no título do expander via CSS injetado
+        st.markdown("""
+        <style>
+            /* Substitui o ícone padrão do expander pelo BI funnel */
+            details[data-testid="stExpander"] > summary::before {
+                font-family: "bootstrap-icons" !important;
+                content: "\\F3D0" !important;  /* bi-funnel */
+                margin-right: 6px;
+                font-size: 14px;
+                color: #F47920;
+                vertical-align: middle;
+            }
+            /* Remove o emoji 🔍 que ficaria duplicado */
+            details[data-testid="stExpander"] > summary span {
+                font-size: 14px;
+                font-weight: 600;
+                color: #C8D6E5;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Linha 1: Busca | Status | Analista — proporções equilibradas
+        col_busca, col_status, col_analista = st.columns([2, 2, 2])
 
         with col_busca:
             busca = st.text_input(
