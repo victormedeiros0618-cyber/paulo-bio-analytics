@@ -74,7 +74,15 @@ def show_historico():
         registros = db.listar_analises(limite=500)
 
     if not registros:
-        st.warning("Nenhuma análise encontrada ou falha na conexão.")
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+            <div class="empty-state-title">Nenhuma análise no histórico</div>
+            <div class="empty-state-desc">
+                Quando você concluir uma análise, ela aparecerá aqui automaticamente.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return
 
     df = _preparar_df(registros)
@@ -216,6 +224,7 @@ def show_historico():
             unsafe_allow_html=True,
         )
 
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
         if st.button(
             f"🗑️ Excluir selecionados ({n})",
             type="secondary",
@@ -224,6 +233,7 @@ def show_historico():
             st.session_state["_confirmar_exclusao_lote"] = [
                 df_pagina.iloc[i].get("id", "") for i in selected_rows
             ]
+        st.markdown('</div>', unsafe_allow_html=True)
 
         lote_ids = st.session_state.get("_confirmar_exclusao_lote", [])
         if lote_ids:
@@ -299,12 +309,30 @@ def show_historico():
                     logger.error("Erro ao gerar PDF do histórico: %s", e)
                     st.error(f"Erro ao gerar PDF: {e}")
 
-        # Exclusão unitária
+        # Exclusão unitária — estilo de risco (borda vermelha, sem fundo laranja)
         st.markdown("<br>", unsafe_allow_html=True)
         registro_id = registro_real.get("id", "")
 
+        st.markdown("""
+        <style>
+            .btn-danger button {
+                background-color: transparent !important;
+                border: 1px solid rgba(231,76,60,0.5) !important;
+                color: #E74C3C !important;
+            }
+            .btn-danger button:hover {
+                background-color: rgba(231,76,60,0.12) !important;
+                border-color: #E74C3C !important;
+                color: #E74C3C !important;
+                transform: none !important;
+                box-shadow: none !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
         if st.button("🗑️ Excluir", use_container_width=True):
             st.session_state["_confirmar_exclusao"] = registro_id
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.get("_confirmar_exclusao") == registro_id:
             st.warning("Confirmar exclusão?")

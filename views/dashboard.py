@@ -154,6 +154,27 @@ def _grafico_tendencia(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def _section_header(titulo: str, icone: str = "") -> str:
+    """Gera HTML de cabeçalho de seção com barra laranja lateral — padrão visual do relatório PDF."""
+    icon_html = f'<i class="bi {icone}" style="margin-right:8px; font-size:14px; color:#F47920;"></i>' if icone else ""
+    return f"""
+    <div style="
+        display:flex; align-items:center;
+        border-left:3px solid #F47920;
+        padding:6px 0 6px 12px;
+        margin:8px 0 12px 0;
+    ">
+        {icon_html}
+        <span style="
+            font-family:'Space Grotesk',sans-serif;
+            font-size:15px; font-weight:700;
+            color:#FFFFFF !important;
+            letter-spacing:-0.01em;
+        ">{titulo}</span>
+    </div>
+    """
+
+
 def _grafico_vgl_status(df: pd.DataFrame) -> go.Figure:
     vgl = df.groupby("Status_Label")["Aluguel"].sum().reset_index()
     fig = px.bar(
@@ -182,7 +203,15 @@ def show_dashboard():
         registros = db.listar_analises(limite=500)
 
     if not registros:
-        st.warning("Nenhuma análise encontrada ou falha na conexão com o banco.")
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-graph-up"></i></div>
+            <div class="empty-state-title">Nenhuma análise encontrada</div>
+            <div class="empty-state-desc">
+                Crie uma nova análise na aba "Nova Análise" para ver os indicadores aqui.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return
 
     df = _preparar_df(registros)
@@ -216,27 +245,32 @@ def show_dashboard():
     col_pizza, col_vgl = st.columns([1, 2])
 
     with col_pizza:
-        st.markdown("##### Proporção de Status")
+        st.markdown(_section_header("Proporção de Status", "bi-pie-chart"), unsafe_allow_html=True)
         st.plotly_chart(_grafico_pizza(df), use_container_width=True)
 
     with col_vgl:
-        st.markdown("##### VGL por Status")
+        st.markdown(_section_header("VGL por Status", "bi-currency-dollar"), unsafe_allow_html=True)
         st.plotly_chart(_grafico_vgl_status(df), use_container_width=True)
 
     st.divider()
 
     # ── GRÁFICO TENDÊNCIA ─────────────────────────────────────────────────────
-    st.markdown("##### Análises por Mês e Status")
+    st.markdown(_section_header("Análises por Mês e Status", "bi-bar-chart-line"), unsafe_allow_html=True)
     fig_trend = _grafico_tendencia(df)
     if fig_trend.data:
         st.plotly_chart(fig_trend, use_container_width=True)
     else:
-        st.info("Dados insuficientes para exibir tendência mensal.")
+        st.markdown("""
+        <div class="empty-state" style="padding:24px;">
+            <div class="empty-state-icon" style="font-size:32px;"><i class="bi bi-bar-chart-line"></i></div>
+            <div class="empty-state-desc">Dados insuficientes para exibir tendência mensal.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
 
     # ── TABELA ÚLTIMAS ────────────────────────────────────────────────────────
-    st.markdown("##### Últimas Análises Realizadas")
+    st.markdown(_section_header("Últimas Análises Realizadas", "bi-clock-history"), unsafe_allow_html=True)
     df_ultimas = (
         df.sort_values("Data_Obj", ascending=False).head(10).copy()
         if "Data_Obj" in df.columns

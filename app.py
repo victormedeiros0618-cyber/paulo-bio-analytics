@@ -221,13 +221,15 @@ with st.sidebar:
         margin-bottom:8px;
     ">
         <div style="
-            width:30px; height:30px; border-radius:2px;
-            background:#F47920;
+            width:32px; height:32px; border-radius:50%;
+            background:linear-gradient(135deg, #F47920, #FF9A44);
             display:flex; align-items:center; justify-content:center;
             flex-shrink:0;
-        ">
-            <i class="bi bi-person-fill" style="color:#0F1923; font-size:15px;"></i>
-        </div>
+            font-family:'Space Grotesk',sans-serif;
+            font-size:14px; font-weight:700; color:#0F1923;
+            letter-spacing:-0.02em;
+            box-shadow: 0 2px 8px rgba(244,121,32,0.3);
+        ">{nome_usuario[:1].upper() if nome_usuario else "?"}</div>
         <div>
             <div style="font-size:12px; font-weight:600; color:#F47920; line-height:1.2;">{nome_usuario}</div>
             <div style="font-size:11px; color:#7F8C8D; line-height:1.2;">Analista</div>

@@ -424,6 +424,34 @@ def aplicar_estilo():
         }}
 
         /* ═══════════════════════════════════════════════════
+           EXPANDER / PAINEL DE FILTROS — Visual de painel
+        ═══════════════════════════════════════════════════ */
+        details[data-testid="stExpander"] {{
+            background-color: #1A2636 !important;
+            border: 1px solid rgba(244,121,32,0.2) !important;
+            border-radius: 2px !important;
+            overflow: hidden;
+        }}
+        details[data-testid="stExpander"] > summary {{
+            background-color: #141E2B !important;
+            padding: 10px 16px !important;
+            border-bottom: 1px solid rgba(244,121,32,0.15) !important;
+        }}
+        details[data-testid="stExpander"] > summary:hover {{
+            background-color: rgba(244,121,32,0.06) !important;
+        }}
+        details[data-testid="stExpander"] > summary span {{
+            font-family: 'Space Grotesk', sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.02em !important;
+            color: #C8D6E5 !important;
+        }}
+        details[data-testid="stExpander"] > div {{
+            padding: 12px 16px !important;
+        }}
+
+        /* ═══════════════════════════════════════════════════
            EMPTY STATES
         ═══════════════════════════════════════════════════ */
         .empty-state {{
