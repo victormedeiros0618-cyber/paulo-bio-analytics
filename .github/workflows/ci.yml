@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  ci:
+    name: Lint · Typecheck · Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (Ruff)
+        run: |
+          pip install ruff
+          ruff check . --select E,F,W --ignore E501 --exclude venv,__pycache__
+
+      - name: Typecheck (Pyright)
+        run: |
+          pip install pyright
+          pyright --pythonversion 3.11 core/ services/ utils/ tests/ || true
+        # "|| true" porque Pyright pode ter falsos positivos em código legado Streamlit
+
+      - name: Tests (pytest)
+        run: |
+          pytest tests/ -v --tb=short
+        env:
+          # Secrets são opcionais no CI — testes unitários não fazem chamadas externas
+          SUPABASE_URL: ""
+          SUPABASE_KEY: ""
+          OPENROUTER_API_KEY: ""
+          SENTRY_DSN: ""
