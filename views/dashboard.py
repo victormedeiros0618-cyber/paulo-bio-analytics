@@ -71,21 +71,16 @@ def _preparar_df(registros: list) -> pd.DataFrame:
 def _kpi_card(label: str, valor: str, cor: str = "", sub: str = "") -> str:
     classe = f"kpi-card {cor}" if cor else "kpi-card"
     sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
-    return f"""
-    <div class="{classe}" style="
-        {'border-left-color:' + COR_PRIMARIA + ';' if not cor else ''}
-        min-height: 80px;
-    ">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value" style="
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 22px;
-        ">{valor}</div>
-        {sub_html}
-    </div>
-    """
+    # Monta style fora da f-string para evitar expressões aninhadas que o Streamlit interpreta como texto literal
+    borda = f"border-left-color:{COR_PRIMARIA};" if not cor else ""
+    style_card = f"{borda} min-height:80px;"
+    return (
+        f'<div class="{classe}" style="{style_card}">'
+        f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;">{valor}</div>'
+        f'{sub_html}'
+        f'</div>'
+    )
 
 
 def _calcular_tendencia_mes(df: pd.DataFrame) -> dict:
