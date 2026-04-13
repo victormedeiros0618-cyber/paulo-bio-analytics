@@ -7,17 +7,42 @@ from core.config import COR_PRIMARIA
 from utils.formatters import formatar_moeda_br
 
 # ── Constantes ────────────────────────────────────────────────────────────────
-_COLOR_MAP = {
-    "✅ APROVADO": "#27AE60",
-    "⚠️ APROVADO COM RESSALVA": "#F1C40F",
-    "❌ REPROVADO": "#E74C3C",
+# Mapeamento limpo: status com emoji → label sem emoji para exibição
+_LABEL_LIMPO = {
+    "✅ APROVADO": "APROVADO",
+    "⚠️ APROVADO COM RESSALVA": "APROVADO COM RESSALVA",
+    "❌ REPROVADO": "REPROVADO",
 }
+
+# Color map usa labels limpos (sem emoji)
+_COLOR_MAP = {
+    "APROVADO": "#27AE60",
+    "APROVADO COM RESSALVA": "#F1C40F",
+    "REPROVADO": "#E74C3C",
+}
+
 _PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
     font=dict(color="#C8D6E5", size=12),
     margin=dict(t=10, b=10, l=0, r=0),
 )
+
+# Meses em PT-BR para formatar eixo X (2026-04 → "Abr/2026")
+_MESES_PT = {
+    "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+    "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+    "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+}
+
+
+def _label_mes(mes_str: str) -> str:
+    """Converte '2026-04' → 'Abr/2026'."""
+    try:
+        ano, mes = mes_str.split("-")
+        return f"{_MESES_PT.get(mes, mes)}/{ano}"
+    except Exception:
+        return mes_str
 
 
 def _preparar_df(registros: list) -> pd.DataFrame:
@@ -30,11 +55,15 @@ def _preparar_df(registros: list) -> pd.DataFrame:
     if "created_at" in df.columns:
         df["Data_Obj"] = pd.to_datetime(df["created_at"], utc=True)
         df["Data"] = df["Data_Obj"].dt.strftime("%d/%m/%Y")
-        df["Mes"] = df["Data_Obj"].dt.to_period("M").astype(str)
+        # Fix bug: usar strftime em vez de to_period().astype(str) que quebra com UTC
+        df["Mes"] = df["Data_Obj"].dt.strftime("%Y-%m")
     else:
         df["Data_Obj"] = pd.NaT
         df["Data"] = "—"
         df["Mes"] = "—"
+
+    # Coluna com labels limpos (sem emoji) para gráficos
+    df["Status_Label"] = df["Status"].map(_LABEL_LIMPO).fillna(df["Status"])
 
     return df
 
@@ -45,61 +74,93 @@ def _kpi_card(label: str, valor: str, cor: str = "", sub: str = "") -> str:
     return f"""
     <div class="{classe}" style="{'border-left-color:' + COR_PRIMARIA + ';' if not cor else ''}">
         <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{valor}</div>
+        <div class="kpi-value" style="
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: clamp(1.1rem, 2vw, 1.5rem);
+        ">{valor}</div>
         {sub_html}
     </div>
     """
 
 
 def _grafico_pizza(df: pd.DataFrame) -> go.Figure:
-    counts = df["Status"].value_counts().reset_index()
+    counts = df["Status_Label"].value_counts().reset_index()
     counts.columns = ["Status", "Quantidade"]
     fig = px.pie(
         counts, values="Quantidade", names="Status", hole=0.42,
         color="Status", color_discrete_map=_COLOR_MAP,
     )
-    fig.update_layout(**_PLOTLY_LAYOUT, legend=dict(
-        orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5
-    ))
-    fig.update_traces(textposition="inside", textinfo="percent+label")
+    fig.update_layout(
+        **_PLOTLY_LAYOUT,
+        legend=dict(
+            orientation="h", yanchor="bottom", y=-0.30,
+            xanchor="center", x=0.5,
+            font=dict(size=11),
+        ),
+    )
+    # Apenas % dentro da fatia, sem label
+    fig.update_traces(
+        textposition="inside",
+        textinfo="percent",
+        insidetextfont=dict(size=13, color="#FFFFFF"),
+    )
     return fig
 
 
 def _grafico_tendencia(df: pd.DataFrame) -> go.Figure:
-    """Linha de análises por mês, com série por status."""
+    """Barras agrupadas de análises por mês × status."""
     if "Mes" not in df.columns or df["Mes"].eq("—").all():
         return go.Figure()
 
-    # Agrupa por mês e status
+    # Agrupa por mês e status limpo
     tendencia = (
-        df.groupby(["Mes", "Status"])
+        df.groupby(["Mes", "Status_Label"])
         .size()
         .reset_index(name="Qtd")
         .sort_values("Mes")
     )
 
-    fig = px.line(
-        tendencia, x="Mes", y="Qtd", color="Status",
+    if tendencia.empty:
+        return go.Figure()
+
+    # Labels PT-BR para eixo X
+    tendencia["Mes_Label"] = tendencia["Mes"].apply(_label_mes)
+
+    fig = px.bar(
+        tendencia,
+        x="Mes_Label",
+        y="Qtd",
+        color="Status_Label",
+        barmode="group",
         color_discrete_map=_COLOR_MAP,
-        markers=True,
-        labels={"Mes": "Mês", "Qtd": "Análises", "Status": ""},
+        labels={"Mes_Label": "Mês", "Qtd": "Análises", "Status_Label": ""},
+        text="Qtd",
     )
     fig.update_layout(
         **_PLOTLY_LAYOUT,
-        legend=dict(orientation="h", yanchor="bottom", y=-0.35, xanchor="center", x=0.5),
-        xaxis=dict(tickangle=-30),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=-0.35,
+            xanchor="center", x=0.5,
+            font=dict(size=11),
+        ),
+        xaxis=dict(tickangle=-30, categoryorder="array",
+                   categoryarray=tendencia["Mes_Label"].unique().tolist()),
+        bargap=0.2,
+        bargroupgap=0.05,
     )
-    fig.update_traces(line=dict(width=2.5), marker=dict(size=7))
+    fig.update_traces(textposition="outside", textfont=dict(size=11))
     return fig
 
 
 def _grafico_vgl_status(df: pd.DataFrame) -> go.Figure:
-    vgl = df.groupby("Status")["Aluguel"].sum().reset_index()
+    vgl = df.groupby("Status_Label")["Aluguel"].sum().reset_index()
     fig = px.bar(
-        vgl, x="Status", y="Aluguel",
-        color="Status", color_discrete_map=_COLOR_MAP,
+        vgl, x="Status_Label", y="Aluguel",
+        color="Status_Label", color_discrete_map=_COLOR_MAP,
         text_auto=".2s",
-        labels={"Aluguel": "VGL (R$)", "Status": ""},
+        labels={"Aluguel": "VGL (R$)", "Status_Label": ""},
     )
     fig.update_layout(**_PLOTLY_LAYOUT, showlegend=False)
     fig.update_traces(textposition="outside")
@@ -159,13 +220,13 @@ def show_dashboard():
         st.plotly_chart(_grafico_pizza(df), use_container_width=True)
 
     with col_vgl:
-        st.markdown("##### VGL Aprovado por Status")
+        st.markdown("##### VGL por Status")
         st.plotly_chart(_grafico_vgl_status(df), use_container_width=True)
 
     st.divider()
 
     # ── GRÁFICO TENDÊNCIA ─────────────────────────────────────────────────────
-    st.markdown("##### Tendência Mensal de Análises")
+    st.markdown("##### Análises por Mês e Status")
     fig_trend = _grafico_tendencia(df)
     if fig_trend.data:
         st.plotly_chart(fig_trend, use_container_width=True)

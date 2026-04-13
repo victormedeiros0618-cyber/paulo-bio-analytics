@@ -10,6 +10,15 @@ logger = get_logger(__name__)
 _PAGE_SIZE = 15
 
 
+def _strip_emoji(texto: str) -> str:
+    """Remove o prefixo de emoji de um status. Ex: '✅ APROVADO' → 'APROVADO'."""
+    partes = texto.split(" ", 1)
+    # Se o primeiro "token" é um emoji (len <= 2 chars ou contém U+FE0F), descarta
+    if len(partes) == 2 and len(partes[0]) <= 2:
+        return partes[1]
+    return texto
+
+
 def _preparar_df(registros: list) -> pd.DataFrame:
     df = pd.DataFrame(registros)
     if "created_at" in df.columns:
@@ -84,8 +93,12 @@ def show_historico():
         with col_status:
             status_opcoes = sorted(df["Status"].dropna().unique().tolist())
             status_sel = st.multiselect(
-                "Status", options=status_opcoes, default=status_opcoes,
+                "Status",
+                options=status_opcoes,
+                default=status_opcoes,
                 placeholder="Todos os status",
+                # Exibe só o texto sem emoji na tag selecionada e no dropdown
+                format_func=_strip_emoji,
             )
 
         with col_analista:
@@ -100,9 +113,15 @@ def show_historico():
         data_max = df["Data_Date"].dropna().max() if df["Data_Date"].notna().any() else date.today()
 
         with col_d1:
-            data_ini = st.date_input("De", value=data_min, min_value=data_min, max_value=data_max)
+            data_ini = st.date_input(
+                "De", value=data_min, min_value=data_min, max_value=data_max,
+                format="DD/MM/YYYY",
+            )
         with col_d2:
-            data_fim = st.date_input("Até", value=data_max, min_value=data_min, max_value=data_max)
+            data_fim = st.date_input(
+                "Até", value=data_max, min_value=data_min, max_value=data_max,
+                format="DD/MM/YYYY",
+            )
         with col_reset:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Limpar", use_container_width=True):
@@ -118,7 +137,6 @@ def show_historico():
     if "historico_pagina" not in st.session_state:
         st.session_state.historico_pagina = 1
 
-    # Resetar página ao filtrar
     pagina_atual = min(st.session_state.historico_pagina, total_paginas)
 
     st.markdown(
@@ -131,14 +149,14 @@ def show_historico():
     fim = inicio + _PAGE_SIZE
     df_pagina = df_filtrado.iloc[inicio:fim]
 
-    # ── GRID ──────────────────────────────────────────────────────────────────
+    # ── GRID (multi-row selection) ────────────────────────────────────────────
     colunas_exibicao = ["Data", "Empresa", "CNPJ", "Analista", "Status"]
     event = st.dataframe(
         df_pagina[colunas_exibicao],
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
-        selection_mode="single-row",
+        selection_mode="multi-row",
     )
 
     # Paginação
@@ -161,14 +179,55 @@ def show_historico():
                 st.session_state.historico_pagina = pagina_atual + 1
                 st.rerun()
 
-    # ── DETALHE DO REGISTRO SELECIONADO ───────────────────────────────────────
     selected_rows = event.selection.get("rows", [])
+
+    # ── EXCLUSÃO EM LOTE (multi-select) ───────────────────────────────────────
+    if len(selected_rows) > 1:
+        st.divider()
+        n = len(selected_rows)
+        st.markdown(
+            f'<span style="color:#F1C40F; font-size:13px;">'
+            f'<i class="bi bi-check2-square"></i>&nbsp;{n} análise(s) selecionada(s)</span>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button(
+            f"🗑️ Excluir selecionados ({n})",
+            type="secondary",
+            use_container_width=False,
+        ):
+            st.session_state["_confirmar_exclusao_lote"] = [
+                df_pagina.iloc[i].get("id", "") for i in selected_rows
+            ]
+
+        lote_ids = st.session_state.get("_confirmar_exclusao_lote", [])
+        if lote_ids:
+            st.warning(f"Confirmar exclusão de **{len(lote_ids)} análise(s)**? Esta ação é irreversível.")
+            col_sim, col_nao = st.columns([1, 3])
+            with col_sim:
+                if st.button("✅ Confirmar exclusão", use_container_width=True):
+                    erros = 0
+                    for rid in lote_ids:
+                        if rid and not db.excluir_analise(rid):
+                            erros += 1
+                    st.session_state.pop("_confirmar_exclusao_lote", None)
+                    if erros == 0:
+                        st.toast(f"{len(lote_ids)} análise(s) excluída(s) com sucesso.")
+                    else:
+                        st.error(f"{erros} exclusão(ões) falharam.")
+                    st.rerun()
+            with col_nao:
+                if st.button("❌ Cancelar", use_container_width=False):
+                    st.session_state.pop("_confirmar_exclusao_lote", None)
+                    st.rerun()
+        return  # não exibe detalhe individual quando há múltipla seleção
+
+    # ── DETALHE DO REGISTRO SELECIONADO (seleção única) ───────────────────────
     if not selected_rows:
         return
 
     idx_na_pagina = selected_rows[0]
     registro_selecionado = df_pagina.iloc[idx_na_pagina]
-    # Busca o registro original (com campo 'dados') pelo index real
     registro_real = df.loc[registro_selecionado.name]
     dados_json = registro_real.get("dados") or {}
 
@@ -215,7 +274,7 @@ def show_historico():
                     logger.error("Erro ao gerar PDF do histórico: %s", e)
                     st.error(f"Erro ao gerar PDF: {e}")
 
-        # Exclusão
+        # Exclusão unitária
         st.markdown("<br>", unsafe_allow_html=True)
         registro_id = registro_real.get("id", "")
 

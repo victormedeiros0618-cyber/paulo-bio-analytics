@@ -211,28 +211,34 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    col_rst, col_cache, col_sair = st.columns(3)
+    # Linha 1: Reiniciar | Sair (2 colunas — texto curto, sem wrapping)
+    col_rst, col_sair = st.columns(2)
     with col_rst:
         st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
-        if st.button("Reiniciar", use_container_width=True):
+        if st.button("⟳ Reiniciar", use_container_width=True):
             st.session_state.dados = {"checklist_docs": {}}
             st.session_state.step = 0
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-    with col_cache:
-        st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
-        if st.button("♻️ Cache", use_container_width=True, help="Limpar cache de análises para reprocessar os PDFs"):
-            clear_cache()
-            st.toast("Cache limpo.")
-        st.markdown('</div>', unsafe_allow_html=True)
     with col_sair:
         st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
-        if st.button("↪ Sair", use_container_width=True):
+        if st.button("⏏ Sair", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.usuario_logado = ""
             st.session_state.email_usuario = ""
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # Linha 2: Cache — full width, menos destaque visual
+    st.markdown('<div class="sidebar-action-btn">', unsafe_allow_html=True)
+    if st.button(
+        "↺  Limpar Cache",
+        use_container_width=True,
+        help="Limpar cache de análises para reprocessar os PDFs",
+    ):
+        clear_cache()
+        st.toast("Cache limpo com sucesso.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 from views.components.checklist import render_document_checklist
 
