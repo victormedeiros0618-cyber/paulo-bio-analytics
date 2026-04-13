@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 
 def _calcular_comprometimento(aluguel_raw, receita_list):
     """Calcula % de comprometimento da receita pelo aluguel."""
@@ -46,32 +46,19 @@ def show_passo_5():
     with st.container(border=True):
         uploaded = st.file_uploader("PDFs Contábeis (Balanços e DREs)", type="pdf", accept_multiple_files=True, key="up5")
         if uploaded and st.button("Executar Auditoria Avançada"):
-            import time
-            msgs = [
-                "📄 Carregando Balanços e DREs...",
-                "📊 Mapeando série histórica de receitas...",
-                "🔢 Calculando indicadores (Solvência, Liquidez)...",
-                "🧠 Elaborando parecer do auditor IA...",
-            ]
-            placeholder = st.empty()
-            for msg in msgs:
-                placeholder.info(msg)
-                time.sleep(0.7)
-            with placeholder.container():
-                with st.spinner("Consolidando auditoria financeira..."):
-                    res = ai.auditar_contabil(
-                        uploaded,
-                        d.get('empresa', ''),
-                        d.get('cnpj', ''),
-                        d.get('aluguel', 0),
-                        d.get('iptu', 0)
-                    )
-                    if res:
-                        st.session_state.dados.update(res)
-                        st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
-                        if not (res.get("receita_bruta") or res.get("analise_executiva")):
-                            st.session_state['_contabil_aviso'] = "Análise concluída, mas alguns dados financeiros não foram identificados nos documentos. Verifique se os PDFs contêm Balanço e DRE."
-            placeholder.empty()
+            with ai_progress("contabil", "Consolidando auditoria financeira..."):
+                res = ai.auditar_contabil(
+                    uploaded,
+                    d.get('empresa', ''),
+                    d.get('cnpj', ''),
+                    d.get('aluguel', 0),
+                    d.get('iptu', 0)
+                )
+                if res:
+                    st.session_state.dados.update(res)
+                    st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
+                    if not (res.get("receita_bruta") or res.get("analise_executiva")):
+                        st.session_state['_contabil_aviso'] = "Análise concluída, mas alguns dados financeiros não foram identificados nos documentos. Verifique se os PDFs contêm Balanço e DRE."
             if res:
                 show_toast("✅ Auditoria contábil concluída!", "success")
                 st.rerun()

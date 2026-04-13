@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 
 # Mapeia risco para classe CSS e emoji
 def _classe_risco(risco: str):
@@ -31,23 +31,10 @@ def show_passo_3():
             uploaded = st.file_uploader("Upload Serasa (Múltiplos PDFs)", type="pdf", accept_multiple_files=True, key="up3")
             if uploaded and st.button("Mapear Pendências"):
                 st.session_state.dados["checklist_docs"]["Passo 3 (Serasa)"] = [f.name for f in uploaded]
-                msgs = [
-                    "📄 Lendo PDFs do Serasa...",
-                    "🔍 Identificando pendências e credores...",
-                    "🔗 Analisando contágio societário...",
-                    "🧠 Consolidando o mapa de riscos...",
-                ]
-                placeholder = st.empty()
-                import time
-                for msg in msgs:
-                    placeholder.info(msg)
-                    time.sleep(0.6)
-                with placeholder.container():
-                    with st.spinner("Consolidando análise final..."):
-                        res = ai.mapear_serasa(uploaded, d.get('empresa', ''), d.get('cnpj', ''))
-                        if res:
-                            st.session_state.dados.update(res)
-                placeholder.empty()
+                with ai_progress("serasa", "Consolidando mapa de riscos..."):
+                    res = ai.mapear_serasa(uploaded, d.get('empresa', ''), d.get('cnpj', ''))
+                    if res:
+                        st.session_state.dados.update(res)
                 if res:
                     show_toast("✅ Mapa de riscos consolidado!", "success")
                     st.rerun()

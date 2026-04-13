@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 
 def show_passo_6():
     d = st.session_state.dados
@@ -17,7 +17,7 @@ def show_passo_6():
         with st.container(border=True):
             uploaded = st.file_uploader("Upload IR Sócios (Múltiplos PDFs)", type="pdf", accept_multiple_files=True, key="up6")
             if uploaded and st.button("Analisar Patrimônio"):
-                with st.spinner("Analisando declarações..."):
+                with ai_progress("patrimonio", "Consolidando análise patrimonial..."):
                     res = ai.analisar_patrimonio_socios(uploaded, d)
                     if res:
                         st.session_state.dados.update(res)

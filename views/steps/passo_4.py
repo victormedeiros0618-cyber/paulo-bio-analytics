@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 
 def show_passo_4():
     d = st.session_state.dados
@@ -21,7 +21,7 @@ def show_passo_4():
             uploaded = st.file_uploader("Upload Lote de Certidões", type="pdf", accept_multiple_files=True, key="up4")
             if uploaded and st.button("Auditar Certidões"):
                 st.session_state.dados["checklist_docs"]["Passo 4 (Certidões)"] = [f.name for f in uploaded]
-                with st.spinner("Lendo certidões..."):
+                with ai_progress("certidoes", "Consolidando auditoria jurídica..."):
                     res = ai.auditar_certidoes(uploaded, d.get('empresa', ''), d.get('cnpj', ''))
                     if res:
                         st.session_state.dados.update(res)

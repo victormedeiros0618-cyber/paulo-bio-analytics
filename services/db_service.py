@@ -96,6 +96,25 @@ class DBService:
             logger.error("Erro ao listar análises do Supabase: %s", e)
             return []
 
+    def excluir_analise(self, analise_id: str) -> bool:
+        """Exclui uma análise pelo ID no Supabase."""
+        try:
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+                "Content-Type": "application/json",
+            }
+            url = f"{self.rest_url}?id=eq.{analise_id}"
+            res = requests.delete(url, headers=headers)
+            if res.status_code in [200, 204]:
+                logger.info("Análise %s excluída com sucesso.", analise_id)
+                return True
+            logger.error("Erro ao excluir análise %s: %d %s", analise_id, res.status_code, res.text)
+            return False
+        except Exception as e:
+            logger.error("Erro de conexão ao excluir análise: %s", e)
+            return False
+
     def _salvar_gsheets(self, dados, decisao):
         """Lógica legada de salvamento em Google Sheets."""
         try:

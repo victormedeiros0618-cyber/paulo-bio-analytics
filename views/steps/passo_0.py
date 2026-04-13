@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast, empty_state
+from views.components.uicomponents import show_toast, empty_state, ai_progress
 
 def show_passo_0():
     d = st.session_state.dados
@@ -18,7 +18,7 @@ def show_passo_0():
             uploaded = st.file_uploader("Upload Contrato e Aditivos (PDFs)", type="pdf", accept_multiple_files=True, key="up0")
             if uploaded and st.button("Extrair Dados Societários"):
                 st.session_state.dados["checklist_docs"]["Passo 0 (Contrato Social)"] = [f.name for f in uploaded]
-                with st.spinner("Analisando Documentos..."):
+                with ai_progress("contrato", "Consolidando dados societários..."):
                     res = ai.extrair_contrato(uploaded)
                     if res:
                         st.session_state.dados.update(res)

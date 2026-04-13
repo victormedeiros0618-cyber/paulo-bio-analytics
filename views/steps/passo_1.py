@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 from utils.formatters import safe_float
 
 def show_passo_1():
@@ -19,7 +19,7 @@ def show_passo_1():
             uploaded = st.file_uploader("Upload Proposta (PDF)", type="pdf", key="up1")
             if uploaded and st.button("Extrair Proposta"):
                 st.session_state.dados["checklist_docs"]["Passo 1 (Proposta)"] = [uploaded.name]
-                with st.spinner("Lendo..."):
+                with ai_progress("proposta", "Consolidando dados da proposta..."):
                     res = ai.extrair_proposta(uploaded)
                     if res:
                         st.session_state.dados.update(res)
@@ -62,7 +62,7 @@ def show_passo_1():
                 up_fiador = st.file_uploader("Upload Docs do Fiador (IR, Matrícula)", type="pdf", accept_multiple_files=True, key="up_fiador")
                 if up_fiador and st.button("Analisar Capacidade do Fiador"):
                     st.session_state.dados["checklist_docs"]["Passo 1 (Fiador)"] = [f.name for f in up_fiador]
-                    with st.spinner("Analisando Fiador..."):
+                    with ai_progress("fiador", "Consolidando matriz do fiador..."):
                         res_fiador = ai.analisar_fiador(up_fiador, d.get("aluguel", "0"))
                         if res_fiador:
                             st.session_state.dados.update(res_fiador)

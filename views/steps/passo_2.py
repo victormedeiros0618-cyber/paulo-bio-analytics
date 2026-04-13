@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast
+from views.components.uicomponents import show_toast, ai_progress
 
 def show_passo_2():
     d = st.session_state.dados
@@ -18,7 +18,7 @@ def show_passo_2():
             uploaded = st.file_uploader("Upload Ficha Cadastral (PDF)", type="pdf", key="up2")
             if uploaded and st.button("Extrair Referências"):
                 st.session_state.dados["checklist_docs"]["Passo 2 (Ficha Cadastral)"] = [uploaded.name]
-                with st.spinner("Lendo..."):
+                with ai_progress("referencias", "Consolidando referências..."):
                     res = ai.extrair_referencias(uploaded)
                     if res:
                         st.session_state.dados.update(res)
