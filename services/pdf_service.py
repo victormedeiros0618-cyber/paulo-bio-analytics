@@ -179,11 +179,16 @@ class PDFExecutivo(FPDF):
 
     def _row(self, label: str, value: str) -> None:
         """Par label + valor em linha."""
-        self.set_text_color(0, 0, 0) # Força preto para evitar herança de cores de cards/seções
+        # Garante que o cursor está na margem esquerda antes de cada linha
+        self.set_x(CFG.MARGIN_LEFT)
+        self.set_text_color(0, 0, 0)
         self.set_font(CFG.FONT, "B", CFG.FONT_SIZE_BODY)
-        self.cell(55, CFG.LINE_HEIGHT_BODY, limpa_pdf(label)) # Aumentado de 45 para 55 para evitar sobreposição
+        label_w = 55.0
+        self.cell(label_w, CFG.LINE_HEIGHT_BODY, limpa_pdf(label))
         self.set_font(CFG.FONT, "", CFG.FONT_SIZE_BODY)
-        self.multi_cell(0, CFG.LINE_HEIGHT_BODY, limpa_pdf(str(value)), align="J")
+        # Largura explícita = área útil - label — nunca fica negativa
+        value_w = 210.0 - CFG.MARGIN_LEFT - CFG.MARGIN_RIGHT - label_w
+        self.multi_cell(value_w, CFG.LINE_HEIGHT_BODY, limpa_pdf(str(value)), align="J")
 
     def _draw_card(self, x: float, y: float, label: str, value: str) -> None:
         """Card informativo com borda laranja."""
