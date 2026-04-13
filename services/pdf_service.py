@@ -512,11 +512,12 @@ def gerar_pdf_bytes(dados: dict, decisao: str) -> bytes:
         pdf.render_credito_e_financeiro(dados_validados)
         pdf.render_parecer_final(dados_validados, decisao)
 
-        # fpdf2 >= 2.5: output() retorna bytes UTF-8 diretamente
+        # fpdf2 moderno: output() pode retornar bytearray ou bytes dependendo da versão
+        # Streamlit requer bytes explícito para st.download_button
         out = pdf.output(dest="S")
         if isinstance(out, str):
             return out.encode("latin1")
-        return out
+        return bytes(out)  # garante bytes mesmo se fpdf2 retornar bytearray
 
     except Exception as exc:
         raise RuntimeError(f"Falha ao gerar PDF: {exc}") from exc
