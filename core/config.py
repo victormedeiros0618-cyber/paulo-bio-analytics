@@ -88,7 +88,8 @@ def aplicar_estilo():
         /* ═══════════════════════════════════════════════════
            BOTÕES — Sharp, laranja, micro-animação
         ═══════════════════════════════════════════════════ */
-        .stButton > button {{
+        /* Botões padrão — exclui sidebar (.sidebar-action-btn / .sidebar-cache-btn) */
+        :not(.sidebar-action-btn):not(.sidebar-cache-btn):not(.btn-danger) > .stButton > button {{
             background-color: {COR_PRIMARIA} !important;
             color: #0F1923 !important;
             border-radius: 2px !important;
@@ -102,27 +103,105 @@ def aplicar_estilo():
             font-size: 13px !important;
             transition: all 0.15s ease-out !important;
         }}
-        .stButton > button:hover {{
+        :not(.sidebar-action-btn):not(.sidebar-cache-btn):not(.btn-danger) > .stButton > button:hover {{
             background-color: #FF8C30 !important;
             transform: translateY(-2px) !important;
             box-shadow: 0 6px 20px rgba(244, 121, 32, 0.4) !important;
         }}
-        .stButton > button:active {{
+        :not(.sidebar-action-btn):not(.sidebar-cache-btn):not(.btn-danger) > .stButton > button:active {{
             transform: translateY(0px) !important;
         }}
 
         /* ═══════════════════════════════════════════════════
-           FILE UPLOADER — Dashed border laranja
+           SIDEBAR BUTTONS — Estilo sutil e uniforme
+        ═══════════════════════════════════════════════════ */
+        .sidebar-action-btn .stButton > button,
+        .sidebar-cache-btn .stButton > button {{
+            height: 30px !important;
+            padding: 0 10px !important;
+            font-size: 11px !important;
+            font-weight: 400 !important;
+            font-family: 'Inter', sans-serif !important;
+            letter-spacing: 0 !important;
+            text-transform: none !important;
+            border-radius: 2px !important;
+            background-color: transparent !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            color: #7F8C8D !important;
+            box-shadow: none !important;
+            transform: none !important;
+            transition: all 0.15s ease-out !important;
+        }}
+        .sidebar-action-btn .stButton > button:hover,
+        .sidebar-cache-btn .stButton > button:hover {{
+            background-color: rgba(244,121,32,0.08) !important;
+            border-color: rgba(244,121,32,0.4) !important;
+            color: #F47920 !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }}
+
+        /* ═══════════════════════════════════════════════════
+           DANGER BUTTON — Exclusão (borda vermelha)
+        ═══════════════════════════════════════════════════ */
+        .btn-danger .stButton > button {{
+            height: 44px !important;
+            background-color: transparent !important;
+            border: 1px solid rgba(231,76,60,0.5) !important;
+            color: #E74C3C !important;
+            font-family: 'Space Grotesk', sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }}
+        .btn-danger .stButton > button:hover {{
+            background-color: rgba(231,76,60,0.12) !important;
+            border-color: #E74C3C !important;
+            color: #E74C3C !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }}
+
+        /* ═══════════════════════════════════════════════════
+           FILE UPLOADER — Visual expressivo com ícone
         ═══════════════════════════════════════════════════ */
         [data-testid="stFileUploadDropzone"] {{
             background-color: rgba(244, 121, 32, 0.04) !important;
-            border: 2px dashed rgba(244, 121, 32, 0.5) !important;
+            border: 2px dashed rgba(244, 121, 32, 0.35) !important;
             border-radius: 2px !important;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
+            padding: 24px 16px !important;
+            min-height: 100px !important;
+            position: relative;
         }}
         [data-testid="stFileUploadDropzone"]:hover {{
             border-color: {COR_PRIMARIA} !important;
             background-color: rgba(244, 121, 32, 0.08) !important;
+            box-shadow: 0 0 20px rgba(244,121,32,0.08);
+        }}
+        /* Ícone decorativo no dropzone via pseudo-element */
+        [data-testid="stFileUploadDropzone"]::before {{
+            font-family: "bootstrap-icons" !important;
+            content: "\\F148" !important;  /* bi-cloud-arrow-up */
+            display: block;
+            text-align: center;
+            font-size: 28px;
+            color: rgba(244,121,32,0.5);
+            margin-bottom: 4px;
+            line-height: 1;
+        }}
+        [data-testid="stFileUploadDropzone"]:hover::before {{
+            color: {COR_PRIMARIA};
+        }}
+        /* Texto interno mais legível */
+        [data-testid="stFileUploadDropzone"] div,
+        [data-testid="stFileUploadDropzone"] span,
+        [data-testid="stFileUploadDropzone"] small {{
+            font-family: 'Inter', sans-serif !important;
+            font-size: 12px !important;
         }}
 
         /* ═══════════════════════════════════════════════════

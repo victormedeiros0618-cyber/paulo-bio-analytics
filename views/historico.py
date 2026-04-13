@@ -183,9 +183,27 @@ def show_historico():
     df_pagina = df_filtrado.iloc[inicio:fim]
 
     # ── GRID (multi-row selection) ────────────────────────────────────────────
+    _STATUS_COLORS = {
+        "APROVADO": "#27AE60",
+        "APROVADO COM RESSALVA": "#F1C40F",
+        "REPROVADO": "#E74C3C",
+    }
+
+    def _color_status(val: str) -> str:
+        """Aplica cor ao texto da célula Status."""
+        for key, color in _STATUS_COLORS.items():
+            if key in str(val):
+                return f"color: {color}; font-weight: 600"
+        return ""
+
     colunas_exibicao = ["Data", "Empresa", "CNPJ", "Analista", "Status"]
+    df_styled = (
+        df_pagina[colunas_exibicao]
+        .style.map(_color_status, subset=["Status"])
+    )
+
     event = st.dataframe(
-        df_pagina[colunas_exibicao],
+        df_styled,
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
@@ -313,22 +331,7 @@ def show_historico():
         st.markdown("<br>", unsafe_allow_html=True)
         registro_id = registro_real.get("id", "")
 
-        st.markdown("""
-        <style>
-            .btn-danger button {
-                background-color: transparent !important;
-                border: 1px solid rgba(231,76,60,0.5) !important;
-                color: #E74C3C !important;
-            }
-            .btn-danger button:hover {
-                background-color: rgba(231,76,60,0.12) !important;
-                border-color: #E74C3C !important;
-                color: #E74C3C !important;
-                transform: none !important;
-                box-shadow: none !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
+        # Estilo .btn-danger centralizado em core/config.py
         st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
         if st.button("🗑️ Excluir", use_container_width=True):
             st.session_state["_confirmar_exclusao"] = registro_id

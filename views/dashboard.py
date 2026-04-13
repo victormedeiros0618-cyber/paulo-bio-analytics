@@ -72,17 +72,58 @@ def _kpi_card(label: str, valor: str, cor: str = "", sub: str = "") -> str:
     classe = f"kpi-card {cor}" if cor else "kpi-card"
     sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
     return f"""
-    <div class="{classe}" style="{'border-left-color:' + COR_PRIMARIA + ';' if not cor else ''}">
+    <div class="{classe}" style="
+        {'border-left-color:' + COR_PRIMARIA + ';' if not cor else ''}
+        min-height: 80px;
+    ">
         <div class="kpi-label">{label}</div>
         <div class="kpi-value" style="
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            font-size: clamp(1.1rem, 2vw, 1.5rem);
+            font-size: 22px;
         ">{valor}</div>
         {sub_html}
     </div>
     """
+
+
+def _calcular_tendencia_mes(df: pd.DataFrame) -> dict:
+    """Calcula variação do mês atual vs anterior para KPIs."""
+    if "Mes" not in df.columns or df["Mes"].eq("—").all():
+        return {}
+
+    meses = sorted(df["Mes"].unique())
+    if len(meses) < 2:
+        return {}
+
+    mes_atual = meses[-1]
+    mes_anterior = meses[-2]
+    df_atual = df[df["Mes"] == mes_atual]
+    df_anterior = df[df["Mes"] == mes_anterior]
+
+    total_atual = len(df_atual)
+    total_anterior = len(df_anterior)
+    delta_total = total_atual - total_anterior
+
+    aprov_atual = len(df_atual[df_atual["Status"].str.contains("APROVADO", na=False)])
+    aprov_anterior = len(df_anterior[df_anterior["Status"].str.contains("APROVADO", na=False)])
+
+    vgl_atual = df_atual[df_atual["Status"].str.contains("APROVADO", na=False)]["Aluguel"].sum()
+    vgl_anterior = df_anterior[df_anterior["Status"].str.contains("APROVADO", na=False)]["Aluguel"].sum()
+
+    def _seta(delta: float) -> str:
+        if delta > 0:
+            return f'<span style="color:#27AE60;">↑ +{int(delta)}</span>'
+        elif delta < 0:
+            return f'<span style="color:#E74C3C;">↓ {int(delta)}</span>'
+        return '<span style="color:#7F8C8D;">= 0</span>'
+
+    return {
+        "total": _seta(delta_total),
+        "vgl": _seta(vgl_atual - vgl_anterior),
+        "aprovacoes": _seta(aprov_atual - aprov_anterior),
+    }
 
 
 def _grafico_pizza(df: pd.DataFrame) -> go.Figure:
@@ -224,15 +265,19 @@ def show_dashboard():
     ticket_medio = df["Aluguel"].mean() if total > 0 else 0
     analistas_ativos = df["Analista"].nunique()
 
+    tend = _calcular_tendencia_mes(df)
+    sub_total = f"vs mês anterior {tend['total']}" if tend.get("total") else ""
+    sub_vgl = f"vs mês anterior {tend['vgl']}" if tend.get("vgl") else ""
+
     st.markdown('<div class="kpi-grid">', unsafe_allow_html=True)
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        st.markdown(_kpi_card("Total de Análises", str(total)), unsafe_allow_html=True)
+        st.markdown(_kpi_card("Total de Análises", str(total), sub=sub_total), unsafe_allow_html=True)
     with c2:
         cor = "verde" if tx_aprov >= 60 else ("amarelo" if tx_aprov >= 40 else "vermelho")
         st.markdown(_kpi_card("Taxa de Aprovação", f"{tx_aprov:.1f}%", cor), unsafe_allow_html=True)
     with c3:
-        st.markdown(_kpi_card("VGL Aprovado", formatar_moeda_br(vgl_total), "verde"), unsafe_allow_html=True)
+        st.markdown(_kpi_card("VGL Aprovado", formatar_moeda_br(vgl_total), "verde", sub=sub_vgl), unsafe_allow_html=True)
     with c4:
         st.markdown(_kpi_card("Ticket Médio (Aluguel)", formatar_moeda_br(ticket_medio)), unsafe_allow_html=True)
     with c5:
