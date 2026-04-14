@@ -61,8 +61,8 @@ with st.sidebar:
     
     menu = option_menu(
         menu_title=None,
-        options=["Dashboard", "Nova Análise", "Histórico", "Configurações"],
-        icons=["bar-chart-fill", "file-earmark-text-fill", "clock-history", "gear-fill"],
+        options=["Dashboard", "Nova Análise", "Histórico", "Auditoria", "Configurações"],
+        icons=["bar-chart-fill", "file-earmark-text-fill", "clock-history", "shield-check", "gear-fill"],
         default_index=1,
         styles={
             "container": {"background-color": bg_nav},
@@ -307,6 +307,10 @@ elif menu == "Histórico":
 elif menu == "Dashboard":
     from views.dashboard import show_dashboard
     show_dashboard()
+
+elif menu == "Auditoria":
+    from views.auditoria import show_auditoria
+    show_auditoria()
 
 elif menu == "Configurações":
     st.title("Configurações")

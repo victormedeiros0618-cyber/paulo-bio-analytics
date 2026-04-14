@@ -53,6 +53,7 @@ Thumbs.db
 
 # Editor temp files
 *.tmp
+*.tmp.*
 *.swp
 *.swo
 
