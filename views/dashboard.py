@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from services.db_service import DBService
 from core.config import COR_PRIMARIA
 from utils.formatters import formatar_moeda_br
+from views.components.skeletons import skeleton_dashboard
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 # Mapeamento limpo: status com emoji → label sem emoji para exibição
@@ -373,8 +374,11 @@ def show_dashboard():
     """, unsafe_allow_html=True)
 
     db = DBService()
-    with st.spinner("Carregando estatísticas..."):
-        registros = db.listar_analises(limite=500)
+    _placeholder = st.empty()
+    with _placeholder.container():
+        skeleton_dashboard()
+    registros = db.listar_analises(limite=500)
+    _placeholder.empty()
 
     if not registros:
         st.markdown("""

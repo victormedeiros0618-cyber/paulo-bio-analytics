@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from services.db_service import DBService
 from services.pdf_service import gerar_pdf_bytes
 from services.excel_service import gerar_excel_bytes
+from views.components.skeletons import skeleton_historico
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -71,8 +72,11 @@ def show_historico():
     """, unsafe_allow_html=True)
 
     db = DBService()
-    with st.spinner("Conectando ao banco de dados..."):
-        registros = db.listar_analises(limite=500)
+    _placeholder = st.empty()
+    with _placeholder.container():
+        skeleton_historico()
+    registros = db.listar_analises(limite=500)
+    _placeholder.empty()
 
     if not registros:
         st.markdown("""
