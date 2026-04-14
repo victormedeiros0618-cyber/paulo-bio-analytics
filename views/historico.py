@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import date, timedelta
 from services.db_service import DBService
 from services.pdf_service import gerar_pdf_bytes
+from services.excel_service import gerar_excel_bytes
 from core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -172,11 +173,33 @@ def show_historico():
 
     pagina_atual = min(st.session_state.historico_pagina, total_paginas)
 
-    st.markdown(
-        f'<span style="color:#7F8C8D; font-size:12px;">'
-        f'{total_filtrado} análise(s) encontrada(s) · Página {pagina_atual}/{total_paginas}</span>',
-        unsafe_allow_html=True,
-    )
+    col_info_row, col_export = st.columns([4, 1])
+    with col_info_row:
+        st.markdown(
+            f'<span style="color:#7F8C8D; font-size:12px;">'
+            f'{total_filtrado} análise(s) encontrada(s) · Página {pagina_atual}/{total_paginas}</span>',
+            unsafe_allow_html=True,
+        )
+    with col_export:
+        if total_filtrado > 0:
+            try:
+                # Usa os índices do df filtrado para buscar os registros originais do Supabase
+                indices_filtrados = list(df_filtrado.index)
+                registros_export = [registros[i] for i in indices_filtrados if i < len(registros)]
+
+                nome_arquivo = f"analises_paulo_bio_{date.today().strftime('%Y%m%d')}.xlsx"
+                excel_bytes = gerar_excel_bytes(registros_export)
+                st.download_button(
+                    label="📥 Excel",
+                    data=excel_bytes,
+                    file_name=nome_arquivo,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help="Exportar análises filtradas para Excel (.xlsx)",
+                )
+            except Exception as e:
+                logger.error("Erro ao gerar Excel: %s", e)
+                st.error("Erro ao gerar Excel.")
 
     inicio = (pagina_atual - 1) * _PAGE_SIZE
     fim = inicio + _PAGE_SIZE
