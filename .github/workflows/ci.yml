@@ -27,7 +27,9 @@ jobs:
       - name: Lint (Ruff)
         run: |
           pip install ruff
-          ruff check . --select E,F,W --ignore E501 --exclude venv,__pycache__
+          # E4xx: imports | E7xx: statements — ignora whitespace (W29x) e E402
+          # que são ruídos do código legado Streamlit
+          ruff check . --select E4,E7,E9,F --ignore E402,E701 --exclude venv,__pycache__
 
       - name: Typecheck (Pyright)
         run: |

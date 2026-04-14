@@ -1,5 +1,3 @@
-import os
-
 filepath = 'services/pdf_service.py'
 with open(filepath, 'r', encoding='utf-8') as f:
     content = f.read()

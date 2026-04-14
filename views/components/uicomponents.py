@@ -1,6 +1,5 @@
 import time
 from contextlib import contextmanager
-from typing import Callable
 
 import streamlit as st
 

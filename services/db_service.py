@@ -46,7 +46,7 @@ class DBService:
             al_clean = al_raw.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
             try:
                 al_float = float(''.join(c for c in al_clean if c.isdigit() or c == '.'))
-            except:
+            except (ValueError, TypeError):
                 al_float = 0.0
 
             headers = {

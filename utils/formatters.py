@@ -5,7 +5,7 @@ def str_to_float(val):
     """Converte string formatada em Real (R$ 1.000,00) para float (1000.0)."""
     try: 
         return float(str(val).replace('R$', '').replace('.', '').replace(',', '.').strip())
-    except: 
+    except Exception:
         return 0.0
 
 def formatar_valor_contabil(valor):
@@ -25,7 +25,7 @@ def safe_float(valor):
         elif ',' in v: v = v.replace(',', '.')
         v = re.sub(r'[^\d.-]', '', v)
         return float(v) if v else 0.0
-    except:
+    except Exception:
         return 0.0
 
 def extrair_json_seguro(texto):
@@ -35,7 +35,7 @@ def extrair_json_seguro(texto):
         match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', texto, re.DOTALL)
         if match:
             return json.loads(match.group(1))
-    except:
+    except Exception:
         pass
     # Fallback: busca raw entre o primeiro { e o último }
     try:
@@ -43,7 +43,7 @@ def extrair_json_seguro(texto):
         fim = texto.rfind('}') + 1
         if inicio != -1 and fim > inicio:
             return json.loads(texto[inicio:fim])
-    except:
+    except Exception:
         pass
     return {}
 
@@ -60,7 +60,7 @@ def limpa_pdf(texto):
             texto_str = texto_str.replace(k, v)
         # Primeiro tenta direto (funciona com ISO-8859-1/Latin-1)
         return texto_str.encode('latin-1', 'ignore').decode('latin-1').strip()
-    except:
+    except Exception:
         # Fallback: remover tudo que não for ASCII básico
         return ''.join(c for c in str(texto) if ord(c) < 128).strip()
 
@@ -68,7 +68,7 @@ def formatar_moeda_br(valor):
     """Formata float para R$ 1.234,56."""
     try:
         return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
+    except Exception:
         return str(valor)
 
 def limpa_markdown(texto):
@@ -87,5 +87,5 @@ def limpa_markdown(texto):
         # Remove multiple empty lines
         texto_str = re.sub(r'\n{3,}', '\n\n', texto_str)
         return texto_str.strip()
-    except:
+    except Exception:
         return str(texto)

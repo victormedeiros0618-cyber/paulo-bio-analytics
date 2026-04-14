@@ -661,13 +661,12 @@ class PDFExecutivo(FPDF):
         aluguel_val = safe_float(dados.get("aluguel", 0))
         # Tentar renda do fiador primeiro, senão receita bruta mensal
         renda_ref = safe_float(dados.get("renda_media_oficial", 0))
-        renda_label = "renda mensal oficial do fiador"
+
         if renda_ref <= 0 and receitas:
             # Usar última receita bruta anual / 12
             ultima_receita_str = str(receitas[-1]).replace("R$", "").replace(".", "").replace(",", ".").strip()
             try:
                 renda_ref = float(ultima_receita_str) / 12
-                renda_label = "receita bruta mensal"
             except (ValueError, ZeroDivisionError):
                 renda_ref = 0
 
@@ -722,7 +721,6 @@ class PDFExecutivo(FPDF):
 
         for passo_key, passo_desc in PASSOS_WORKFLOW:
             arquivos = checklist.get(passo_key, [])
-            y_before = self.get_y()
 
             if arquivos:
                 # ✓ Verde — documentos presentes
@@ -781,7 +779,7 @@ def _validar_dados(dados: dict) -> DadosRelatorio:
     if not isinstance(dados, dict):
         try:
             dados = dict(dados)
-        except:
+        except Exception:
             dados = {}
 
     campos_lista = (
