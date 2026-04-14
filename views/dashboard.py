@@ -391,7 +391,10 @@ def show_dashboard():
     df = _preparar_df(registros)
 
     # ── ABAS ──────────────────────────────────────────────────────────────────
-    aba_visao, aba_mensal = st.tabs(["📊 Visão Geral", "📅 Relatório Mensal"])
+    aba_visao, aba_mensal = st.tabs([
+        ":material/speed: Visão Geral",
+        ":material/calendar_month: Relatório Mensal",
+    ])
 
     # ══════════════════════════════════════════════════════════════════════════
     # ABA 1 — Visão Geral (conteúdo original)

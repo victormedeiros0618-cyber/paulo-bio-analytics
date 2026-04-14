@@ -190,7 +190,7 @@ def show_historico():
                 nome_arquivo = f"analises_paulo_bio_{date.today().strftime('%Y%m%d')}.xlsx"
                 excel_bytes = gerar_excel_bytes(registros_export)
                 st.download_button(
-                    label="📥 Excel",
+                    label=":material/table_chart: Excel",
                     data=excel_bytes,
                     file_name=nome_arquivo,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -267,7 +267,7 @@ def show_historico():
 
         st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
         if st.button(
-            f"🗑️ Excluir selecionados ({n})",
+            f":material/delete_sweep: Excluir selecionados ({n})",
             type="secondary",
             use_container_width=False,
         ):
@@ -281,7 +281,7 @@ def show_historico():
             st.warning(f"Confirmar exclusão de **{len(lote_ids)} análise(s)**? Esta ação é irreversível.")
             col_sim, col_nao = st.columns([1, 3])
             with col_sim:
-                if st.button("✅ Confirmar exclusão", use_container_width=True):
+                if st.button(":material/check_circle: Confirmar exclusão", use_container_width=True):
                     erros = 0
                     for rid in lote_ids:
                         if rid and not db.excluir_analise(rid):
@@ -293,7 +293,7 @@ def show_historico():
                         st.error(f"{erros} exclusão(ões) falharam.")
                     st.rerun()
             with col_nao:
-                if st.button("❌ Cancelar", use_container_width=False):
+                if st.button(":material/cancel: Cancelar", use_container_width=False):
                     st.session_state.pop("_confirmar_exclusao_lote", None)
                     st.rerun()
         return  # não exibe detalhe individual quando há múltipla seleção
@@ -324,10 +324,10 @@ def show_historico():
 
         checklist = dados_json.get("checklist_docs", {})
         if checklist:
-            with st.expander("📚 Documentos Analisados"):
+            with st.expander(":material/folder_open: Documentos Analisados"):
                 for passo, arquivos in checklist.items():
                     if arquivos:
-                        st.markdown(f"**✅ {passo}:**")
+                        st.markdown(f"**:material/check_circle: {passo}:**")
                         for arq in arquivos:
                             st.caption(f"- {arq}")
 
@@ -335,12 +335,12 @@ def show_historico():
         st.markdown("<br>", unsafe_allow_html=True)
 
         # Download PDF
-        if st.button("📥 Baixar PDF", type="primary", use_container_width=True):
+        if st.button(":material/picture_as_pdf: Baixar PDF", type="primary", use_container_width=True):
             with st.spinner("Gerando PDF..."):
                 try:
                     pdf_bytes = gerar_pdf_bytes(dados_json, str(registro_real["Status"]))
                     st.download_button(
-                        label="💾 Salvar PDF",
+                        label=":material/download: Salvar PDF",
                         data=pdf_bytes,
                         file_name=f"Relatorio_{registro_real['Empresa']}.pdf",
                         mime="application/pdf",
@@ -356,7 +356,7 @@ def show_historico():
 
         # Estilo .btn-danger centralizado em core/config.py
         st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
-        if st.button("🗑️ Excluir", use_container_width=True):
+        if st.button(":material/delete: Excluir", use_container_width=True):
             st.session_state["_confirmar_exclusao"] = registro_id
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -364,7 +364,7 @@ def show_historico():
             st.warning("Confirmar exclusão?")
             col_sim, col_nao = st.columns(2)
             with col_sim:
-                if st.button("✅ Sim", use_container_width=True):
+                if st.button(":material/check_circle: Sim", use_container_width=True):
                     sucesso = db.excluir_analise(registro_id)
                     if sucesso:
                         st.success("Registro excluído.")
@@ -373,6 +373,6 @@ def show_historico():
                     else:
                         st.error("Erro ao excluir.")
             with col_nao:
-                if st.button("❌ Não", use_container_width=True):
+                if st.button(":material/cancel: Não", use_container_width=True):
                     st.session_state.pop("_confirmar_exclusao", None)
                     st.rerun()
