@@ -35,6 +35,19 @@ if not st.session_state.logged_in:
     show_login()
     st.stop()
 
+# Carrega configurações do analista uma vez por sessão (após login)
+if "config_usuario" not in st.session_state:
+    _email = st.session_state.get("email_usuario", "")
+    if _email:
+        from services.db_service import DBService as _DBService
+        st.session_state["config_usuario"] = _DBService().get_config_usuario(_email)
+    else:
+        st.session_state["config_usuario"] = {
+            "nome_empresa": "Paulo Bio Imóveis",
+            "cabecalho_laudo": "",
+            "rodape_laudo": "",
+        }
+
 # --- 3. INICIALIZAÇÃO DE ESTADO ---
 if 'step' not in st.session_state: st.session_state.step = 0
 if 'dados' not in st.session_state:
@@ -313,5 +326,5 @@ elif menu == "Auditoria":
     show_auditoria()
 
 elif menu == "Configurações":
-    st.title("Configurações")
-    st.info("Em desenvolvimento.")
+    from views.configuracoes import show_configuracoes
+    show_configuracoes()

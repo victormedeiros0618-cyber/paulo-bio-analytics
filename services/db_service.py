@@ -129,6 +129,61 @@ class DBService:
             logger.error("Erro de conexão ao excluir análise: %s", e)
             return False
 
+    # ── Configurações por usuário ─────────────────────────────────────────────
+
+    def get_config_usuario(self, email: str) -> dict:
+        """Retorna as configurações do usuário. Se não existir, retorna os defaults."""
+        defaults = {
+            "nome_empresa": "Paulo Bio Imóveis",
+            "cabecalho_laudo": "",
+            "rodape_laudo": "",
+        }
+        if not email:
+            return defaults
+        try:
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+            }
+            url = f"{self.supabase_url}/rest/v1/configuracoes_usuario?usuario_email=eq.{email}&select=nome_empresa,cabecalho_laudo,rodape_laudo"
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                rows = res.json()
+                if rows:
+                    return {**defaults, **rows[0]}
+            logger.warning("get_config_usuario: status %d", res.status_code)
+        except Exception as e:
+            logger.warning("get_config_usuario falhou (non-fatal): %s", e)
+        return defaults
+
+    def salvar_config_usuario(self, email: str, config: dict) -> bool:
+        """Upsert das configurações do usuário (INSERT ou UPDATE pelo email PK)."""
+        if not email:
+            return False
+        try:
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates,return=minimal",
+            }
+            payload = {
+                "usuario_email": email,
+                "nome_empresa": config.get("nome_empresa", "Paulo Bio Imóveis"),
+                "cabecalho_laudo": config.get("cabecalho_laudo", ""),
+                "rodape_laudo": config.get("rodape_laudo", ""),
+            }
+            url = f"{self.supabase_url}/rest/v1/configuracoes_usuario"
+            res = requests.post(url, headers=headers, json=payload, timeout=5)
+            if res.status_code in [200, 201, 204]:
+                logger.info("Configurações salvas para %s", email)
+                return True
+            logger.error("salvar_config_usuario: status %d — %s", res.status_code, res.text)
+            return False
+        except Exception as e:
+            logger.error("salvar_config_usuario falhou: %s", e)
+            return False
+
     def _registrar_auditoria(self, acao: str, entidade: str, entidade_id: str,
                               detalhe: str, meta: dict | None = None) -> None:
         """Grava um evento de auditoria na tabela audit_log do Supabase. Fire-and-forget."""

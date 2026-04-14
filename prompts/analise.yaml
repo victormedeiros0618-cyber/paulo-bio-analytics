@@ -125,12 +125,17 @@ passo_6_patrimonio: |
   - Períodos Contábeis: {periodos} | Receita Bruta: {receita_bruta} | Resultado: {resultado}
   - Análise Técnica Contábil: {analise_executiva}
 
+  IDENTIDADE DA EMPRESA EMISSORA:
+  - Nome da empresa: {nome_empresa}
+  {cabecalho_instrucao}
+
   ANÁLISE DE PATRIMÔNIO E PARECER (Aluguel Pretendido: {aluguel}):
   1. 'conclusao_socio' (TEXTO): Com base no IR dos sócios ANEXADO, avalie o patrimônio
      segmentando Aplicação/Liquidez e Patrimônio Imobiliário. Identifique dívidas declaradas
      e conclua sobre a saúde patrimonial.
   2. 'parecer_final' (TEXTO): Gere um parecer formal executivo preenchendo TODOS os campos
-     entre colchetes com dados reais do CONTEXTO e do IR ANEXADO. NÃO deixe colchetes no texto final:
+     entre colchetes com dados reais do CONTEXTO e do IR ANEXADO. NÃO deixe colchetes no texto final.
+     O parecer deve ser emitido em nome de "{nome_empresa}":
 
   Trata-se de uma empresa com [calcule: anos desde {data_abertura} até hoje] de existência
   (fundada em {data_abertura}). O capital social da empresa é de {capital_social}.

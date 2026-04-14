@@ -148,6 +148,15 @@ class AIService:
         _ult_receita   = _receitas[-1] if _receitas else 'não informado'
         _ult_periodo   = _periodos[-1] if _periodos else 'não informado'
 
+        # Configurações personalizadas do analista (carregadas no login)
+        _config = st.session_state.get("config_usuario") or {}
+        _nome_empresa = _config.get("nome_empresa") or "Paulo Bio Imóveis"
+        _cabecalho = _config.get("cabecalho_laudo", "").strip()
+        _cabecalho_instrucao = (
+            f"- Cabeçalho personalizado para incluir no início do parecer: {_cabecalho}"
+            if _cabecalho else ""
+        )
+
         prompt = get_prompt(
             "passo_6_patrimonio",
             empresa=str(_empresa),
@@ -165,6 +174,8 @@ class AIService:
             ult_resultado=str(_ult_resultado),
             ult_receita=str(_ult_receita),
             ult_periodo=str(_ult_periodo),
+            nome_empresa=_nome_empresa,
+            cabecalho_instrucao=_cabecalho_instrucao,
         )
         return self._cached_generate(
             "passo_6_patrimonio", files, prompt,
