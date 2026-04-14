@@ -28,6 +28,14 @@ class DBService:
         """Salva a análise tanto no Supabase quanto no Google Sheets."""
         sucesso_supabase = self._salvar_supabase_rest(dados, decisao)
         sucesso_gsheets = self._salvar_gsheets(dados, decisao) if self.gs_enabled else False
+        if sucesso_supabase:
+            self._registrar_auditoria(
+                acao="ANALISE_CRIADA",
+                entidade="Análise",
+                entidade_id=dados.get("cnpj") or dados.get("pretendente", ""),
+                detalhe=f"Análise criada: {dados.get('empresa', dados.get('pretendente', ''))} — {decisao}",
+                meta={"status": decisao, "aluguel": str(dados.get("aluguel", ""))},
+            )
         return sucesso_supabase or sucesso_gsheets
 
     def _salvar_supabase_rest(self, dados, decisao):
@@ -108,12 +116,43 @@ class DBService:
             res = requests.delete(url, headers=headers)
             if res.status_code in [200, 204]:
                 logger.info("Análise %s excluída com sucesso.", analise_id)
+                self._registrar_auditoria(
+                    acao="ANALISE_EXCLUIDA",
+                    entidade="Análise",
+                    entidade_id=analise_id,
+                    detalhe=f"Análise {analise_id} excluída",
+                )
                 return True
             logger.error("Erro ao excluir análise %s: %d %s", analise_id, res.status_code, res.text)
             return False
         except Exception as e:
             logger.error("Erro de conexão ao excluir análise: %s", e)
             return False
+
+    def _registrar_auditoria(self, acao: str, entidade: str, entidade_id: str,
+                              detalhe: str, meta: dict | None = None) -> None:
+        """Grava um evento de auditoria na tabela audit_log do Supabase. Fire-and-forget."""
+        try:
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            }
+            payload = {
+                "usuario": st.session_state.get("email_usuario") or st.session_state.get("usuario_logado", "sistema"),
+                "acao": acao,
+                "entidade": entidade,
+                "entidade_id": entidade_id,
+                "detalhe": detalhe,
+                "meta": json.dumps(meta or {}),
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+            audit_url = f"{self.supabase_url}/rest/v1/audit_log"
+            requests.post(audit_url, headers=headers, json=payload, timeout=5)
+            logger.info("Auditoria registrada: %s %s %s", acao, entidade, entidade_id)
+        except Exception as e:
+            logger.warning("Falha ao registrar auditoria (non-fatal): %s", e)
 
     def _salvar_gsheets(self, dados, decisao):
         """Lógica legada de salvamento em Google Sheets."""
