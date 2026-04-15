@@ -76,10 +76,10 @@ def render_upload_status(uploaded_files: list, resultados: dict[str, bool] | Non
         if resultados is None:
             # Estado neutro — arquivo carregado mas ainda não processado
             icone = '<span style="color:#7F8C8D;">⏳</span>'
-            cor_nome = "#C8D6E5"
+            cor_nome = "inherit"
         elif resultados.get(nome, False):
             icone = '<span style="color:#27AE60;">✔</span>'
-            cor_nome = "#C8D6E5"
+            cor_nome = "inherit"
         else:
             icone = '<span style="color:#E74C3C;">✗</span>'
             cor_nome = "#E74C3C"
@@ -94,9 +94,16 @@ def render_upload_status(uploaded_files: list, resultados: dict[str, bool] | Non
             f'</div>'
         )
 
+    # CSS inline responsivo ao tema claro/escuro via data-theme attribute
     html = (
-        '<div style="background:#1A2636; border:1px solid rgba(244,121,32,0.2); '
-        'border-radius:2px; padding:8px 12px; margin-top:8px;">'
+        '<style>'
+        '.pb-upload-box { background:#1A2636; border:1px solid rgba(244,121,32,0.2); '
+        'border-radius:2px; padding:8px 12px; margin-top:8px; }'
+        '[data-theme="light"] .pb-upload-box { background:#FFFFFF !important; '
+        'border-color: rgba(244,121,32,0.25) !important; '
+        'box-shadow: 0 1px 4px rgba(0,0,0,0.06); }'
+        '</style>'
+        '<div class="pb-upload-box">'
         '<div style="font-size:10px; color:#F47920; font-weight:700; '
         'text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">'
         f'📎 {len(uploaded_files)} arquivo(s)</div>'

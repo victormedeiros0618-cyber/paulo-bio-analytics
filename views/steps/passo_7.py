@@ -39,6 +39,25 @@ def _render_diff(texto_original: str, texto_editado: str) -> str:
     cor_ratio = "#27AE60" if ratio >= 80 else ("#F1C40F" if ratio >= 50 else "#E74C3C")
 
     return f"""
+    <style>
+        .pb-diff-panel {{
+            background: #1A2636;
+            border-radius: 2px;
+            padding: 12px;
+        }}
+        [data-theme="light"] .pb-diff-panel {{
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }}
+        .pb-diff-text {{
+            font-size: 12px;
+            color: #C8D6E5;
+            line-height: 1.6;
+        }}
+        [data-theme="light"] .pb-diff-text {{
+            color: #2C3E50 !important;
+        }}
+    </style>
     <div style="margin-top:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <span style="font-size:11px; color:#7F8C8D; text-transform:uppercase; letter-spacing:.06em;">
@@ -49,17 +68,17 @@ def _render_diff(texto_original: str, texto_editado: str) -> str:
             </span>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div style="background:#1A2636; border:1px solid rgba(231,76,60,0.3); border-radius:2px; padding:12px;">
+            <div class="pb-diff-panel" style="border:1px solid rgba(231,76,60,0.3);">
                 <div style="font-size:10px; color:#E74C3C; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px;">
                     ← Versão IA
                 </div>
-                <div style="font-size:12px; color:#C8D6E5; line-height:1.6;">{html_orig}</div>
+                <div class="pb-diff-text">{html_orig}</div>
             </div>
-            <div style="background:#1A2636; border:1px solid rgba(39,174,96,0.3); border-radius:2px; padding:12px;">
+            <div class="pb-diff-panel" style="border:1px solid rgba(39,174,96,0.3);">
                 <div style="font-size:10px; color:#27AE60; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px;">
                     Versão Editada →
                 </div>
-                <div style="font-size:12px; color:#C8D6E5; line-height:1.6;">{html_edit}</div>
+                <div class="pb-diff-text">{html_edit}</div>
             </div>
         </div>
     </div>

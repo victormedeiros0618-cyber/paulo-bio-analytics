@@ -594,13 +594,44 @@ def aplicar_estilo():
         /* ═══════════════════════════════════════════════════
            TEMA CLARO
         ═══════════════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           TEMA CLARO — Cobertura completa de todos os componentes
+        ═══════════════════════════════════════════════════ */
+
+        /* Fundos base */
         [data-theme="light"] .stApp,
         [data-theme="light"] .main {{ background-color: #F5F6FA !important; }}
         [data-theme="light"] .block-container {{ background-color: #F5F6FA !important; }}
-        [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 {{ color: #0F1923 !important; }}
-        [data-theme="light"] p, [data-theme="light"] span, [data-theme="light"] label {{ color: #2C3E50 !important; }}
-        [data-theme="light"] [data-testid="stSidebar"] {{ background-color: #FFFFFF !important; }}
-        [data-theme="light"] [data-testid="stVerticalBlockBorderWrapper"] > div {{ background-color: #FFFFFF !important; border-color: rgba(244, 121, 32, 0.15) !important; }}
+
+        /* Textos */
+        [data-theme="light"] h1, [data-theme="light"] h2,
+        [data-theme="light"] h3, [data-theme="light"] h4,
+        [data-theme="light"] h5, [data-theme="light"] h6 {{ color: #0F1923 !important; }}
+        [data-theme="light"] p, [data-theme="light"] span,
+        [data-theme="light"] label, [data-theme="light"] div {{ color: #2C3E50 !important; }}
+
+        /* Sidebar */
+        [data-theme="light"] [data-testid="stSidebar"],
+        [data-theme="light"] [data-testid="stSidebarContent"] {{
+            background-color: #FFFFFF !important;
+            border-right: 3px solid {COR_PRIMARIA} !important;
+        }}
+        [data-theme="light"] [data-testid="stSidebar"] .stButton > button {{
+            color: #2C3E50 !important;
+            border-color: rgba(244, 121, 32, 0.3) !important;
+        }}
+        [data-theme="light"] [data-testid="stSidebar"] .stButton > button:hover {{
+            background-color: rgba(244, 121, 32, 0.1) !important;
+            color: #F47920 !important;
+        }}
+
+        /* Cards e containers */
+        [data-theme="light"] [data-testid="stVerticalBlockBorderWrapper"] > div {{
+            background-color: #FFFFFF !important;
+            border-color: rgba(244, 121, 32, 0.2) !important;
+        }}
+
+        /* Inputs */
         [data-theme="light"] input, [data-theme="light"] textarea {{
             background-color: #F5F6FA !important;
             color: #0F1923 !important;
@@ -611,8 +642,104 @@ def aplicar_estilo():
             color: #555555 !important;
             opacity: 0.85 !important;
         }}
-        [data-theme="light"] [data-testid="stSidebar"] {{
-            border-right: 3px solid {COR_PRIMARIA} !important;
+
+        /* Selectbox */
+        [data-theme="light"] [data-testid="stSelectbox"] div {{
+            background-color: #FFFFFF !important;
+            color: #0F1923 !important;
+        }}
+
+        /* KPI Cards */
+        [data-theme="light"] .kpi-card {{
+            background-color: #FFFFFF !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }}
+        [data-theme="light"] .kpi-card .kpi-value {{ color: #0F1923 !important; }}
+        [data-theme="light"] .kpi-card .kpi-sub {{ color: #7F8C8D !important; }}
+
+        /* Context Header */
+        [data-theme="light"] .ctx-bar {{
+            background-color: #FFFFFF !important;
+            border-bottom-color: {COR_PRIMARIA} !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }}
+        [data-theme="light"] .ctx-val {{ color: #0F1923 !important; }}
+        [data-theme="light"] .ctx-label {{ color: {COR_PRIMARIA} !important; }}
+
+        /* Stepper */
+        [data-theme="light"] .step-circle.pending {{
+            background-color: #E2E8F0 !important;
+            color: #555555 !important;
+            border-color: #BDC3CA !important;
+        }}
+        [data-theme="light"] .step-circle.active {{
+            background-color: #FFFFFF !important;
+            color: {COR_PRIMARIA} !important;
+            border-color: {COR_PRIMARIA} !important;
+        }}
+        [data-theme="light"] .step-circle.done {{
+            background-color: {COR_PRIMARIA} !important;
+            color: #FFFFFF !important;
+        }}
+        [data-theme="light"] .step-label.pending {{ color: #555555 !important; }}
+        [data-theme="light"] .step-label.active  {{ color: #0F1923 !important; }}
+        [data-theme="light"] .step-label.done    {{ color: {COR_PRIMARIA} !important; }}
+        [data-theme="light"] .step-connector.pending {{ background-color: #D1D5DB !important; }}
+
+        /* Veredito Cards */
+        [data-theme="light"] .veredito-card.aprovado {{
+            background-color: rgba(39,174,96,0.08) !important;
+        }}
+        [data-theme="light"] .veredito-card.ressalva {{
+            background-color: rgba(241,196,15,0.08) !important;
+        }}
+        [data-theme="light"] .veredito-card.reprovado {{
+            background-color: rgba(231,76,60,0.08) !important;
+        }}
+        [data-theme="light"] .veredito-label {{ color: #0F1923 !important; }}
+        [data-theme="light"] .veredito-sub   {{ color: #555555 !important; }}
+
+        /* Empty State */
+        [data-theme="light"] .empty-state-icon  {{ color: #7F8C8D !important; }}
+        [data-theme="light"] .empty-state-title {{ color: #0F1923 !important; }}
+        [data-theme="light"] .empty-state-desc  {{ color: #555555 !important; }}
+
+        /* Expanders */
+        [data-theme="light"] details[data-testid="stExpander"] {{
+            background-color: #FFFFFF !important;
+            border-color: rgba(244,121,32,0.15) !important;
+        }}
+        [data-theme="light"] details[data-testid="stExpander"] > summary {{
+            background-color: #F5F6FA !important;
+            border-bottom-color: rgba(244,121,32,0.1) !important;
+        }}
+        [data-theme="light"] details[data-testid="stExpander"] > summary span {{
+            color: #2C3E50 !important;
+        }}
+        [data-theme="light"] details[data-testid="stExpander"] > summary:hover {{
+            background-color: rgba(244,121,32,0.05) !important;
+        }}
+
+        /* Tooltips */
+        [data-theme="light"] .tooltip-content {{
+            background-color: #FFFFFF !important;
+            color: #2C3E50 !important;
+            border-color: {COR_PRIMARIA} !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }}
+
+        /* Dividers */
+        [data-theme="light"] hr {{ border-color: rgba(244,121,32,0.2) !important; }}
+
+        /* File uploader dropzone */
+        [data-theme="light"] [data-testid="stFileUploadDropzone"] {{
+            background-color: rgba(244,121,32,0.03) !important;
+            border-color: rgba(244,121,32,0.3) !important;
+        }}
+        [data-theme="light"] [data-testid="stFileUploadDropzone"] div,
+        [data-theme="light"] [data-testid="stFileUploadDropzone"] span,
+        [data-theme="light"] [data-testid="stFileUploadDropzone"] small {{
+            color: #555555 !important;
         }}
     </style>
     """, unsafe_allow_html=True)

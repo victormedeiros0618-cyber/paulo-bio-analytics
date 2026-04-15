@@ -20,6 +20,7 @@ _SKELETON_CSS = """
     0%   { background-position: -600px 0; }
     100% { background-position: 600px 0; }
 }
+/* Modo escuro (padrão) */
 .pb-skel {
     background: linear-gradient(90deg, #2C3E50 25%, #374f63 50%, #2C3E50 75%);
     background-size: 600px 100%;
@@ -27,11 +28,36 @@ _SKELETON_CSS = """
     border-radius: 6px;
     display: inline-block;
 }
+/* Modo claro — sobrescreve gradiente e cores */
+[data-theme="light"] .pb-skel {
+    background: linear-gradient(90deg, #D1D5DB 25%, #E5E7EB 50%, #D1D5DB 75%) !important;
+    background-size: 600px 100% !important;
+}
+[data-theme="light"] .pb-skel-card {
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(244,121,32,0.12) !important;
+}
+[data-theme="light"] .pb-skel-table {
+    background-color: #FFFFFF !important;
+}
+[data-theme="light"] .pb-skel-row-border {
+    border-bottom-color: #E5E7EB !important;
+}
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    .pb-skel {
+        animation: none !important;
+        background: #2C3E50 !important;
+    }
+    [data-theme="light"] .pb-skel {
+        background: #D1D5DB !important;
+    }
+}
 </style>
 """
 
 _KPI_CARD_HTML = """
-<div style="background:#1e2d3d;border-radius:10px;padding:18px 20px;margin-bottom:4px;">
+<div class="pb-skel-card" style="background:#1e2d3d;border-radius:10px;padding:18px 20px;margin-bottom:4px;">
     <div class="pb-skel" style="height:12px;width:55%;margin-bottom:10px;"></div>
     <div class="pb-skel" style="height:28px;width:40%;margin-bottom:6px;"></div>
     <div class="pb-skel" style="height:10px;width:70%;"></div>
@@ -39,7 +65,7 @@ _KPI_CARD_HTML = """
 """
 
 _TABLE_ROW_HTML = """
-<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #2C3E50;">
+<div class="pb-skel-row-border" style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #2C3E50;">
     <div class="pb-skel" style="height:12px;width:14%;"></div>
     <div class="pb-skel" style="height:12px;width:22%;"></div>
     <div class="pb-skel" style="height:12px;width:18%;"></div>
@@ -50,7 +76,7 @@ _TABLE_ROW_HTML = """
 """
 
 _CHART_CARD_HTML = """
-<div style="background:#1e2d3d;border-radius:10px;padding:18px 20px;">
+<div class="pb-skel-card" style="background:#1e2d3d;border-radius:10px;padding:18px 20px;">
     <div class="pb-skel" style="height:14px;width:40%;margin-bottom:16px;"></div>
     <div class="pb-skel" style="height:{height}px;width:100%;border-radius:8px;"></div>
 </div>
@@ -91,7 +117,7 @@ def skeleton_historico() -> None:
     # Linhas
     rows_html = _TABLE_ROW_HTML * 8
     st.markdown(
-        f'<div style="background:#1e2d3d;border-radius:10px;padding:12px 16px;">'
+        f'<div class="pb-skel-table" style="background:#1e2d3d;border-radius:10px;padding:12px 16px;">'
         f'{rows_html}</div>',
         unsafe_allow_html=True,
     )
