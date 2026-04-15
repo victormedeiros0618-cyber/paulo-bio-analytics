@@ -71,14 +71,14 @@ def _preparar_df(registros: list) -> pd.DataFrame:
 
 def _kpi_card(label: str, valor: str, cor: str = "", sub: str = "") -> str:
     classe = f"kpi-card {cor}" if cor else "kpi-card"
-    sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
-    # Monta style fora da f-string para evitar expressões aninhadas que o Streamlit interpreta como texto literal
+    sub_html = f'<div class="kpi-sub" aria-label="Variação: {sub}">{sub}</div>' if sub else ""
     borda = f"border-left-color:{COR_PRIMARIA};" if not cor else ""
     style_card = f"{borda} min-height:80px;"
     return (
-        f'<div class="{classe}" style="{style_card}">'
-        f'<div class="kpi-label">{label}</div>'
-        f'<div class="kpi-value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;">{valor}</div>'
+        f'<div class="{classe}" style="{style_card}" role="region" aria-label="Métrica: {label}">'
+        f'<div class="kpi-label" aria-hidden="true">{label}</div>'
+        f'<div class="kpi-value" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;" '
+        f'aria-label="{label}: {valor}">{valor}</div>'
         f'{sub_html}'
         f'</div>'
     )
@@ -404,15 +404,54 @@ def show_dashboard():
     # ABA 1 — Visão Geral (conteúdo original)
     # ══════════════════════════════════════════════════════════════════════════
     with aba_visao:
+        # ── FILTRO DE PERÍODO ──────────────────────────────────────────────────
+        meses_todos = sorted(df["Mes"].unique()) if "Mes" in df.columns else []
+        df_vis = df.copy()  # df filtrado para a visão geral
+
+        if meses_todos:
+            col_fv1, col_fv2, col_fv_reset = st.columns([1, 1, 1])
+            with col_fv1:
+                mes_vis_ini = st.selectbox(
+                    "De",
+                    options=meses_todos,
+                    index=0,
+                    format_func=_label_mes,
+                    key="visao_mes_ini",
+                )
+            with col_fv2:
+                mes_vis_fim = st.selectbox(
+                    "Até",
+                    options=meses_todos,
+                    index=len(meses_todos) - 1,
+                    format_func=_label_mes,
+                    key="visao_mes_fim",
+                )
+            with col_fv_reset:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Todos os períodos", use_container_width=True, key="visao_reset"):
+                    st.session_state.visao_mes_ini = meses_todos[0]
+                    st.session_state.visao_mes_fim = meses_todos[-1]
+                    st.rerun()
+
+            if mes_vis_ini <= mes_vis_fim:
+                df_vis = df[(df["Mes"] >= mes_vis_ini) & (df["Mes"] <= mes_vis_fim)].copy()
+            periodo_label = f"{_label_mes(mes_vis_ini)} → {_label_mes(mes_vis_fim)}"
+            st.markdown(
+                f'<p style="color:#7F8C8D; font-size:12px; margin:0 0 12px;">'
+                f'Exibindo: <strong style="color:#F47920;">{periodo_label}</strong> · '
+                f'{len(df_vis)} análise(s)</p>',
+                unsafe_allow_html=True,
+            )
+
         # ── KPIs ──────────────────────────────────────────────────────────────
-        total = len(df)
-        df_aprov = df[df["Status"].str.contains("APROVADO", na=False)]
+        total = len(df_vis)
+        df_aprov = df_vis[df_vis["Status"].str.contains("APROVADO", na=False)]
         tx_aprov = (len(df_aprov) / total * 100) if total > 0 else 0
         vgl_total = df_aprov["Aluguel"].sum()
-        ticket_medio = df["Aluguel"].mean() if total > 0 else 0
-        analistas_ativos = df["Analista"].nunique()
+        ticket_medio = df_vis["Aluguel"].mean() if total > 0 else 0
+        analistas_ativos = df_vis["Analista"].nunique()
 
-        tend = _calcular_tendencia_mes(df)
+        tend = _calcular_tendencia_mes(df_vis)
         sub_total = f"vs mês anterior {tend['total']}" if tend.get("total") else ""
         sub_vgl = f"vs mês anterior {tend['vgl']}" if tend.get("vgl") else ""
 
@@ -437,16 +476,16 @@ def show_dashboard():
         col_pizza, col_vgl = st.columns([1, 2])
         with col_pizza:
             st.markdown(_section_header("Proporção de Status", "bi-pie-chart"), unsafe_allow_html=True)
-            st.plotly_chart(_grafico_pizza(df), use_container_width=True)
+            st.plotly_chart(_grafico_pizza(df_vis), use_container_width=True)
         with col_vgl:
             st.markdown(_section_header("VGL por Status", "bi-currency-dollar"), unsafe_allow_html=True)
-            st.plotly_chart(_grafico_vgl_status(df), use_container_width=True)
+            st.plotly_chart(_grafico_vgl_status(df_vis), use_container_width=True)
 
         st.divider()
 
         # ── GRÁFICO TENDÊNCIA ─────────────────────────────────────────────────
         st.markdown(_section_header("Análises por Mês e Status", "bi-bar-chart-line"), unsafe_allow_html=True)
-        fig_trend = _grafico_tendencia(df)
+        fig_trend = _grafico_tendencia(df_vis)
         if fig_trend.data:
             st.plotly_chart(fig_trend, use_container_width=True)
         else:
@@ -462,9 +501,9 @@ def show_dashboard():
         # ── TABELA ÚLTIMAS ─────────────────────────────────────────────────────
         st.markdown(_section_header("Últimas Análises Realizadas", "bi-clock-history"), unsafe_allow_html=True)
         df_ultimas = (
-            df.sort_values("Data_Obj", ascending=False).head(10).copy()
-            if "Data_Obj" in df.columns
-            else df.head(10).copy()
+            df_vis.sort_values("Data_Obj", ascending=False).head(10).copy()
+            if "Data_Obj" in df_vis.columns
+            else df_vis.head(10).copy()
         )
         df_ultimas["Valor (VGL)"] = df_ultimas["Aluguel"].apply(formatar_moeda_br)
         st.dataframe(

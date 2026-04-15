@@ -83,26 +83,56 @@ class DBService:
             st.error(f"Erro de conexão com Supabase: {e}")
             return False
 
-    def listar_analises(self, limite=100):
-        """Busca análises do Supabase para o Histórico e Dashboard."""
+    def listar_analises(self, limite: int = 100, offset: int = 0) -> list:
+        """
+        Busca análises do Supabase para o Histórico e Dashboard.
+        Suporta paginação server-side via offset (PostgREST Range header).
+        """
         try:
             headers = {
                 "apikey": self.supabase_key,
                 "Authorization": f"Bearer {self.supabase_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                # Habilita retorno do total de registros no header Content-Range
+                "Prefer": "count=exact",
             }
-            # Ordem desc pela data (created_at)
-            url = f"{self.rest_url}?select=*&order=created_at.desc&limit={limite}"
+            url = f"{self.rest_url}?select=*&order=created_at.desc&limit={limite}&offset={offset}"
             res = requests.get(url, headers=headers)
             if res.status_code == 200:
                 dados = res.json()
-                logger.info("Listagem Supabase: %d análises retornadas.", len(dados))
+                logger.info(
+                    "Listagem Supabase: %d análises retornadas (offset=%d).",
+                    len(dados), offset,
+                )
                 return dados
             logger.warning("Listagem Supabase retornou status %d.", res.status_code)
             return []
         except Exception as e:
             logger.error("Erro ao listar análises do Supabase: %s", e)
             return []
+
+    def contar_analises(self) -> int:
+        """Retorna o total de análises no banco (para paginação server-side)."""
+        try:
+            headers = {
+                "apikey": self.supabase_key,
+                "Authorization": f"Bearer {self.supabase_key}",
+                "Prefer": "count=exact",
+            }
+            # HEAD request com Range header para obter apenas o count
+            url = f"{self.rest_url}?select=id"
+            res = requests.get(url, headers=headers, params={"limit": "0"})
+            if res.status_code in [200, 206]:
+                # PostgREST retorna Content-Range: 0-0/TOTAL
+                content_range = res.headers.get("Content-Range", "")
+                if "/" in content_range:
+                    total_str = content_range.split("/")[-1]
+                    if total_str.isdigit():
+                        return int(total_str)
+            return 0
+        except Exception as e:
+            logger.error("Erro ao contar análises: %s", e)
+            return 0
 
     def excluir_analise(self, analise_id: str) -> bool:
         """Exclui uma análise pelo ID no Supabase."""

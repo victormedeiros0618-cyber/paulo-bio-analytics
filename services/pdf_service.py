@@ -168,7 +168,7 @@ class PDFExecutivo(FPDF):
     necessários — sem estado mutável além do cursor do FPDF.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, rodape_customizado: str = "") -> None:
         super().__init__(orientation="P", unit="mm", format="A4")
         self.set_margins(
             left=CFG.MARGIN_LEFT,
@@ -177,6 +177,7 @@ class PDFExecutivo(FPDF):
         )
         self.set_auto_page_break(auto=True, margin=25)
         self._section_counter: int = 0  # numeração contínua de seções
+        self._rodape_customizado: str = rodape_customizado.strip()
 
     # ------------------------------------------------------------------
     # Header / Footer (ABNT — rodapé padronizado)
@@ -194,12 +195,13 @@ class PDFExecutivo(FPDF):
         self.set_draw_color(200, 200, 200)
         self.line(CFG.MARGIN_LEFT, self.get_y(), 190, self.get_y())
         self.ln(2)
-        # Texto à esquerda: confidencial
         self.set_font(CFG.FONT, "I", CFG.FONT_SIZE_SMALL)
         self.set_text_color(CFG.GRAY_R, CFG.GRAY_G, CFG.GRAY_B)
+        # Texto à esquerda: rodapé customizado ou padrão "Confidencial"
+        texto_rodape = self._rodape_customizado if self._rodape_customizado else "Paulo Bio Imóveis - Confidencial"
         self.cell(
             CFG.CONTENT_WIDTH / 2, 5,
-            limpa_pdf("Paulo Bio Imóveis - Confidencial"),
+            limpa_pdf(texto_rodape),
             align="L",
         )
         # Texto à direita: página X de Y
@@ -807,13 +809,15 @@ def _tem_dados_fiadores(dados: DadosRelatorio) -> bool:
 # Ponto de entrada público
 # ---------------------------------------------------------------------------
 
-def gerar_pdf_bytes(dados: dict, decisao: str) -> bytes:
+def gerar_pdf_bytes(dados: dict, decisao: str, config_usuario: dict | None = None) -> bytes:
     """
     Gera o PDF executivo e retorna os bytes prontos para salvar ou servir via HTTP.
 
     Args:
-        dados:   Dicionário com os dados do relatório (ver DadosRelatorio).
-        decisao: Texto do veredito final (ex: "APROVADO" / "REPROVADO").
+        dados:          Dicionário com os dados do relatório (ver DadosRelatorio).
+        decisao:        Texto do veredito final (ex: "APROVADO" / "REPROVADO").
+        config_usuario: Configurações do usuário (nome_empresa, rodape_laudo, etc.).
+                        Se None, usa defaults (sem rodapé customizado).
 
     Returns:
         bytes do PDF em UTF-8 (fpdf2 nativo, sem encode manual).
@@ -824,9 +828,11 @@ def gerar_pdf_bytes(dados: dict, decisao: str) -> bytes:
         RuntimeError: Se a geração do PDF falhar por erro interno do fpdf2.
     """
     dados_validados = _validar_dados(dados)
+    cfg_usr = config_usuario or {}
+    rodape = cfg_usr.get("rodape_laudo", "")
 
     try:
-        pdf = PDFExecutivo()
+        pdf = PDFExecutivo(rodape_customizado=rodape)
         pdf.alias_nb_pages()  # habilita {nb} para total de páginas no rodapé
 
         pdf.render_capa(dados_validados)

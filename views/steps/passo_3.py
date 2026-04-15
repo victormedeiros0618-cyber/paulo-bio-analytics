@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast, ai_progress
+from views.components.uicomponents import show_toast, ai_progress, render_upload_status
 
 # Mapeia risco para classe CSS e emoji
 def _classe_risco(risco: str):
@@ -29,6 +29,9 @@ def show_passo_3():
     with c1:
         with st.container(border=True):
             uploaded = st.file_uploader("Upload Serasa (Múltiplos PDFs)", type="pdf", accept_multiple_files=True, key="up3")
+            res_up3 = st.session_state.get("_res_up3")
+            if uploaded:
+                render_upload_status(uploaded, res_up3)
             if uploaded and st.button("Mapear Pendências"):
                 st.session_state.dados["checklist_docs"]["Passo 3 (Serasa)"] = [f.name for f in uploaded]
                 with ai_progress("serasa", "Consolidando mapa de riscos..."):
@@ -36,7 +39,12 @@ def show_passo_3():
                     if res:
                         st.session_state.dados.update(res)
                 if res:
-                    show_toast("✅ Mapa de riscos consolidado!", "success")
+                    st.session_state["_res_up3"] = {f.name: True for f in uploaded}
+                    score = st.session_state.dados.get("score_serasa", "")
+                    risco = st.session_state.dados.get("risco_serasa", "")
+                    partes = [p for p in [score and f"Score {score}", risco and f"Risco {risco}"] if p]
+                    sufixo = " — " + " · ".join(partes) if partes else ""
+                    show_toast(f"✅ Mapa de riscos Serasa consolidado{sufixo}!", "success")
                     st.rerun()
                 else:
                     st.error("Não foi possível extrair os dados do Serasa. Verifique se os PDFs são válidos e tente novamente.")
@@ -94,5 +102,5 @@ def show_passo_3():
                     st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
                 else:
                     st.session_state.step = 4
-                    show_toast("Passo 4 - Certidões", "info")
+                    show_toast(":material/gavel: Certidões jurídicas — carregue as certidões", "info")
                     st.rerun()

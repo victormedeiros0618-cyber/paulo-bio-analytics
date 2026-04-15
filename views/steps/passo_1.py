@@ -23,7 +23,12 @@ def show_passo_1():
                     res = ai.extrair_proposta(uploaded)
                     if res:
                         st.session_state.dados.update(res)
-                        show_toast("✅ Proposta extraída com sucesso!", "success")
+                        aluguel = st.session_state.dados.get("aluguel", "")
+                        imovel = st.session_state.dados.get("imovel", "")
+                        msg = f"✅ Proposta consolidada — {imovel}" if imovel else "✅ Proposta de locação extraída!"
+                        if aluguel:
+                            msg += f" · R$ {aluguel}"
+                        show_toast(msg, "success")
                         st.rerun()
                     else:
                         st.error("Não foi possível extrair os dados. Verifique se o PDF é válido e tente novamente.")
@@ -95,5 +100,5 @@ def show_passo_1():
                 st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
             else:
                 st.session_state.step = 2
-                show_toast("Passo 2 - Ficha", "info")
+                show_toast(":material/contact_page: Ficha cadastral — carregue as referências", "info")
                 st.rerun()

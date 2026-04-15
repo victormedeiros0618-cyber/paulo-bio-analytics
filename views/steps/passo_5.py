@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast, ai_progress
+from views.components.uicomponents import show_toast, ai_progress, render_upload_status
 
 def _calcular_comprometimento(aluguel_raw, receita_list):
     """Calcula % de comprometimento da receita pelo aluguel."""
@@ -45,6 +45,9 @@ def show_passo_5():
 
     with st.container(border=True):
         uploaded = st.file_uploader("PDFs Contábeis (Balanços e DREs)", type="pdf", accept_multiple_files=True, key="up5")
+        res_up5 = st.session_state.get("_res_up5")
+        if uploaded:
+            render_upload_status(uploaded, res_up5)
         if uploaded and st.button("Executar Auditoria Avançada"):
             with ai_progress("contabil", "Consolidando auditoria financeira..."):
                 res = ai.auditar_contabil(
@@ -57,10 +60,17 @@ def show_passo_5():
                 if res:
                     st.session_state.dados.update(res)
                     st.session_state.dados["checklist_docs"]["Passo 5 (Contábil)"] = [f.name for f in uploaded]
+                    st.session_state["_res_up5"] = {f.name: True for f in uploaded}
                     if not (res.get("receita_bruta") or res.get("analise_executiva")):
                         st.session_state['_contabil_aviso'] = "Análise concluída, mas alguns dados financeiros não foram identificados nos documentos. Verifique se os PDFs contêm Balanço e DRE."
             if res:
-                show_toast("✅ Auditoria contábil concluída!", "success")
+                periodos_ext = st.session_state.dados.get("periodos", [])
+                receitas_ext = st.session_state.dados.get("receita_bruta", [])
+                n_per = len(periodos_ext)
+                msg_contabil = f"✅ Auditoria contábil concluída — {n_per} período(s) processado(s)" if n_per else "✅ Auditoria contábil concluída!"
+                if receitas_ext:
+                    msg_contabil += f" · Receita {receitas_ext[-1]}"
+                show_toast(msg_contabil, "success")
                 st.rerun()
             else:
                 st.session_state['_contabil_erro'] = True
@@ -144,7 +154,7 @@ def show_passo_5():
                     st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
                 else:
                     st.session_state.step = 6
-                    show_toast("Passo 6 - IR", "info")
+                    show_toast(":material/receipt_long: IR dos Sócios — carregue as declarações", "info")
                     st.rerun()
 
     else:
@@ -169,5 +179,5 @@ def show_passo_5():
                     st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
                 else:
                     st.session_state.step = 6
-                    show_toast("Passo 6 - IR", "info")
+                    show_toast(":material/receipt_long: IR dos Sócios — carregue as declarações", "info")
                     st.rerun()

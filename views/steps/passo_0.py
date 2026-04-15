@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast, empty_state, ai_progress
+from views.components.uicomponents import show_toast, empty_state, ai_progress, render_upload_status
 
 def show_passo_0():
     d = st.session_state.dados
@@ -16,13 +16,24 @@ def show_passo_0():
     with c1:
         with st.container(border=True):
             uploaded = st.file_uploader("Upload Contrato e Aditivos (PDFs)", type="pdf", accept_multiple_files=True, key="up0")
+            # Resultado individual por arquivo após extração
+            res_up0 = st.session_state.get("_res_up0")
+            if uploaded:
+                render_upload_status(uploaded, res_up0)
             if uploaded and st.button("Extrair Dados Societários"):
                 st.session_state.dados["checklist_docs"]["Passo 0 (Contrato Social)"] = [f.name for f in uploaded]
                 with ai_progress("contrato", "Consolidando dados societários..."):
                     res = ai.extrair_contrato(uploaded)
                     if res:
                         st.session_state.dados.update(res)
-                        show_toast("✅ Dados extraídos com sucesso!", "success")
+                        # Marcar todos os arquivos como bem-sucedidos
+                        st.session_state["_res_up0"] = {f.name: True for f in uploaded}
+                        empresa = st.session_state.dados.get("empresa", "")
+                        cnpj = st.session_state.dados.get("cnpj", "")
+                        msg = f"✅ Contrato societário consolidado — {empresa}" if empresa else "✅ Contrato Social extraído com sucesso!"
+                        if cnpj:
+                            msg += f" ({cnpj})"
+                        show_toast(msg, "success")
                         st.rerun()
                     else:
                         st.error("Não foi possível extrair os dados. Verifique se o PDF é válido e tente novamente.")
@@ -56,5 +67,5 @@ def show_passo_0():
                         st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
                     else:
                         st.session_state.step = 1
-                        show_toast("Passo 1 - Proposta", "info")
+                        show_toast(":material/description: Proposta de locação — carregue o documento", "info")
                         st.rerun()

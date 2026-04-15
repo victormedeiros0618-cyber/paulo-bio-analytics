@@ -43,5 +43,5 @@ def show_passo_2():
             with c_b2:
                 if st.button("Avançar"): 
                     st.session_state.step = 3
-                    show_toast("Passo 3 - Serasa", "info")
+                    show_toast(":material/credit_score: Serasa — carregue o relatório de crédito", "info")
                     st.rerun()

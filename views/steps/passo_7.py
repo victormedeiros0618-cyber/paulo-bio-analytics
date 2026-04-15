@@ -1,7 +1,69 @@
+import difflib
 import streamlit as st
 from services.pdf_service import gerar_pdf_bytes
 from services.db_service import DBService
 from views.components.uicomponents import show_toast
+
+
+def _render_diff(texto_original: str, texto_editado: str) -> str:
+    """
+    Gera HTML com diff inline: adições em verde, remoções em vermelho.
+    Compara palavra a palavra para granularidade fina.
+    """
+    palavras_orig = texto_original.split()
+    palavras_edit = texto_editado.split()
+    matcher = difflib.SequenceMatcher(None, palavras_orig, palavras_edit, autojunk=False)
+
+    partes_orig: list[str] = []
+    partes_edit: list[str] = []
+
+    for op, i1, i2, j1, j2 in matcher.get_opcodes():
+        orig_chunk = " ".join(palavras_orig[i1:i2])
+        edit_chunk = " ".join(palavras_edit[j1:j2])
+        if op == "equal":
+            partes_orig.append(orig_chunk)
+            partes_edit.append(edit_chunk)
+        elif op == "replace":
+            partes_orig.append(f'<span style="background:rgba(231,76,60,0.25);color:#E74C3C;border-radius:2px;padding:0 2px;">{orig_chunk}</span>')
+            partes_edit.append(f'<span style="background:rgba(39,174,96,0.25);color:#27AE60;border-radius:2px;padding:0 2px;">{edit_chunk}</span>')
+        elif op == "delete":
+            partes_orig.append(f'<span style="background:rgba(231,76,60,0.25);color:#E74C3C;border-radius:2px;padding:0 2px;">{orig_chunk}</span>')
+        elif op == "insert":
+            partes_edit.append(f'<span style="background:rgba(39,174,96,0.25);color:#27AE60;border-radius:2px;padding:0 2px;">{edit_chunk}</span>')
+
+    html_orig = " ".join(partes_orig)
+    html_edit = " ".join(partes_edit)
+
+    # Calcula % de similaridade
+    ratio = round(matcher.ratio() * 100, 1)
+    cor_ratio = "#27AE60" if ratio >= 80 else ("#F1C40F" if ratio >= 50 else "#E74C3C")
+
+    return f"""
+    <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:11px; color:#7F8C8D; text-transform:uppercase; letter-spacing:.06em;">
+                Comparação Parecer IA × Editado
+            </span>
+            <span style="font-size:11px; color:{cor_ratio}; font-weight:600;">
+                {ratio}% de similaridade
+            </span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="background:#1A2636; border:1px solid rgba(231,76,60,0.3); border-radius:2px; padding:12px;">
+                <div style="font-size:10px; color:#E74C3C; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px;">
+                    ← Versão IA
+                </div>
+                <div style="font-size:12px; color:#C8D6E5; line-height:1.6;">{html_orig}</div>
+            </div>
+            <div style="background:#1A2636; border:1px solid rgba(39,174,96,0.3); border-radius:2px; padding:12px;">
+                <div style="font-size:10px; color:#27AE60; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px;">
+                    Versão Editada →
+                </div>
+                <div style="font-size:12px; color:#C8D6E5; line-height:1.6;">{html_edit}</div>
+            </div>
+        </div>
+    </div>
+    """
 
 _VEREDITOS = {
     "✅ APROVADO": {
@@ -31,8 +93,12 @@ def show_passo_7():
     </h3>
     """, unsafe_allow_html=True)
 
-    # Parecer gerado pela IA em destaque
+    # Parecer gerado pela IA — guardar versão original para diff
     parecer_ia = d.get("parecer_final", "")
+    # Preserva a versão original da IA na primeira vez que o passo é exibido
+    if parecer_ia and "_parecer_ia_original" not in st.session_state:
+        st.session_state["_parecer_ia_original"] = parecer_ia
+
     if parecer_ia:
         with st.expander("📋 Pré-Parecer Gerado pela IA (Base)", expanded=False):
             st.info(parecer_ia)
@@ -46,6 +112,15 @@ def show_passo_7():
             label_visibility="collapsed"
         )
         st.session_state.dados["parecer_oficial"] = parecer_oficial
+
+        # ── DIFF VISUAL IA × EDITADO ────────────────────────────────────────
+        parecer_orig = st.session_state.get("_parecer_ia_original", "")
+        if parecer_orig and parecer_oficial and parecer_orig.strip() != parecer_oficial.strip():
+            with st.expander(":material/compare: Ver diferenças em relação ao parecer da IA", expanded=False):
+                st.markdown(
+                    _render_diff(parecer_orig, parecer_oficial),
+                    unsafe_allow_html=True,
+                )
 
     # ── SOLUÇÃO COMPLEMENTAR ────────────────────────────────────────
     st.markdown("""
@@ -79,13 +154,13 @@ def show_passo_7():
     # Card visual do veredito selecionado
     info = _VEREDITOS[decisao]
     st.markdown(f"""
-    <div class="veredito-card {info['css']}">
-        <div class="veredito-icon"><i class="bi {info['icon']}"></i></div>
+    <article class="veredito-card {info['css']}" role="region" aria-label="Veredito da análise: {decisao}">
+        <div class="veredito-icon" aria-hidden="true"><i class="bi {info['icon']}"></i></div>
         <div class="veredito-body">
-            <div class="veredito-label">{decisao}</div>
-            <div class="veredito-sub">{info['sub']}</div>
+            <h2 class="veredito-label">{decisao}</h2>
+            <p class="veredito-sub">{info['sub']}</p>
         </div>
-    </div>
+    </article>
     """, unsafe_allow_html=True)
 
     st.write("")
@@ -112,7 +187,8 @@ def show_passo_7():
 
                 # 2. Gera PDF
                 try:
-                    pdf_data = gerar_pdf_bytes(d, decisao)
+                    cfg_usr = st.session_state.get("config_usuario", {})
+                    pdf_data = gerar_pdf_bytes(d, decisao, config_usuario=cfg_usr)
                 except Exception as e:
                     st.error(f"❌ Erro ao gerar PDF: {e}")
                     pdf_data = None

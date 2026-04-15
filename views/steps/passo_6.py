@@ -50,5 +50,5 @@ def show_passo_6():
                         st.error(f"Preencha os campos obrigatórios: {', '.join(erros)}")
                     else:
                         st.session_state.step = 7
-                        show_toast("Passo 7 - Parecer Final", "info")
+                        show_toast(":material/rate_review: Parecer Final — revise e emita o veredito", "info")
                         st.rerun()

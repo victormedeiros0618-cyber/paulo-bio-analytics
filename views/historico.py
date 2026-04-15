@@ -72,10 +72,19 @@ def show_historico():
     """, unsafe_allow_html=True)
 
     db = DBService()
+
+    # Paginação server-side: carrega em blocos de 200, evitando queries gigantes.
+    # Os filtros client-side operam sobre o bloco carregado.
+    # O usuário pode avançar blocos via "Carregar mais" se necessário.
+    _BLOCO = 200
+    if "historico_offset" not in st.session_state:
+        st.session_state.historico_offset = 0
+
     _placeholder = st.empty()
     with _placeholder.container():
         skeleton_historico()
-    registros = db.listar_analises(limite=500)
+    offset_atual = st.session_state.historico_offset
+    registros = db.listar_analises(limite=_BLOCO, offset=offset_atual)
     _placeholder.empty()
 
     if not registros:

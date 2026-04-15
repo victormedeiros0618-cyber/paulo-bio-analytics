@@ -56,6 +56,56 @@ _MSGS_PADRAO: dict[str, list[str]] = {
 }
 
 
+def render_upload_status(uploaded_files: list, resultados: dict[str, bool] | None = None) -> None:
+    """
+    Renderiza feedback visual individual por arquivo após upload múltiplo.
+
+    Args:
+        uploaded_files: Lista de UploadedFile do Streamlit.
+        resultados:     Dict {nome_arquivo: True/False} indicando sucesso por arquivo.
+                        Se None, exibe apenas os arquivos carregados (estado neutro).
+    """
+    if not uploaded_files:
+        return
+
+    itens_html = []
+    for f in uploaded_files:
+        nome = f.name
+        tamanho_kb = round(f.size / 1024, 1) if hasattr(f, "size") else "?"
+
+        if resultados is None:
+            # Estado neutro — arquivo carregado mas ainda não processado
+            icone = '<span style="color:#7F8C8D;">⏳</span>'
+            cor_nome = "#C8D6E5"
+        elif resultados.get(nome, False):
+            icone = '<span style="color:#27AE60;">✔</span>'
+            cor_nome = "#C8D6E5"
+        else:
+            icone = '<span style="color:#E74C3C;">✗</span>'
+            cor_nome = "#E74C3C"
+
+        itens_html.append(
+            f'<div style="display:flex; align-items:center; gap:8px; padding:4px 0; '
+            f'border-bottom:1px solid rgba(255,255,255,0.05);">'
+            f'<span style="font-size:14px; width:20px; text-align:center;">{icone}</span>'
+            f'<span style="font-size:12px; color:{cor_nome}; flex:1; overflow:hidden; '
+            f'text-overflow:ellipsis; white-space:nowrap;">{nome}</span>'
+            f'<span style="font-size:10px; color:#7F8C8D;">{tamanho_kb} KB</span>'
+            f'</div>'
+        )
+
+    html = (
+        '<div style="background:#1A2636; border:1px solid rgba(244,121,32,0.2); '
+        'border-radius:2px; padding:8px 12px; margin-top:8px;">'
+        '<div style="font-size:10px; color:#F47920; font-weight:700; '
+        'text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;">'
+        f'📎 {len(uploaded_files)} arquivo(s)</div>'
+        + "".join(itens_html)
+        + "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def show_toast(message: str, type: str = "info") -> None:
     """
     Exibe toast notification inline (Streamlit native).
@@ -74,9 +124,9 @@ def show_toast(message: str, type: str = "info") -> None:
 def empty_state(icon: str, title: str, description: str) -> None:
     """Renderiza empty state com ícone, título e descrição."""
     st.markdown(f'''
-    <div class="empty-state">
-        <div class="empty-state-icon">{icon}</div>
-        <div class="empty-state-title">{title}</div>
+    <div class="empty-state" role="status" aria-live="polite" aria-label="{title}">
+        <div class="empty-state-icon" aria-hidden="true">{icon}</div>
+        <div class="empty-state-title" role="heading" aria-level="2">{title}</div>
         <div class="empty-state-desc">{description}</div>
     </div>
     ''', unsafe_allow_html=True)

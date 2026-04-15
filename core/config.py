@@ -82,7 +82,12 @@ def aplicar_estilo():
         }}
         input:focus, textarea:focus {{
             border-color: {COR_PRIMARIA} !important;
-            box-shadow: 0 0 0 2px rgba(244, 121, 32, 0.2) !important;
+            box-shadow: 0 0 0 4px rgba(244, 121, 32, 0.4) !important;
+            outline: none !important;
+        }}
+        input:focus-visible, textarea:focus-visible {{
+            outline: 3px solid {COR_PRIMARIA} !important;
+            outline-offset: 2px !important;
         }}
 
         /* ═══════════════════════════════════════════════════
@@ -91,7 +96,7 @@ def aplicar_estilo():
         /* Botões padrão (área principal) */
         .stButton > button {{
             background-color: {COR_PRIMARIA} !important;
-            color: #0F1923 !important;
+            color: #FFFFFF !important;
             border-radius: 2px !important;
             border: none !important;
             height: 44px !important;
@@ -110,6 +115,13 @@ def aplicar_estilo():
         }}
         .stButton > button:active {{
             transform: translateY(0px) !important;
+        }}
+        /* Foco visível para acessibilidade WCAG 2.4.7 */
+        .stButton > button:focus,
+        .stButton > button:focus-visible {{
+            outline: 3px solid #FFFFFF !important;
+            outline-offset: 2px !important;
+            background-color: #FF8C30 !important;
         }}
 
         /* ═══════════════════════════════════════════════════
@@ -419,6 +431,30 @@ def aplicar_estilo():
         .skeleton-title {{ height: 24px; width: 60%; margin-bottom: 12px; }}
         .skeleton-box {{ height: 120px; }}
 
+        /* ── prefers-reduced-motion ─────────────────────────────────────────── */
+        @media (prefers-reduced-motion: reduce) {{
+            .skeleton {{
+                animation: none !important;
+                background: #1A2636 !important;
+                opacity: 0.6;
+            }}
+            .toast {{
+                animation: none !important;
+                opacity: 1 !important;
+                transform: translateX(0) !important;
+            }}
+            .step-circle, .step-connector {{
+                transition: none !important;
+            }}
+            .stButton > button {{
+                transition: none !important;
+                transform: none !important;
+            }}
+            [data-testid="stFileUploadDropzone"] {{
+                transition: none !important;
+            }}
+        }}
+
         /* ═══════════════════════════════════════════════════
            TOAST NOTIFICATIONS
         ═══════════════════════════════════════════════════ */
@@ -565,6 +601,18 @@ def aplicar_estilo():
         [data-theme="light"] p, [data-theme="light"] span, [data-theme="light"] label {{ color: #2C3E50 !important; }}
         [data-theme="light"] [data-testid="stSidebar"] {{ background-color: #FFFFFF !important; }}
         [data-theme="light"] [data-testid="stVerticalBlockBorderWrapper"] > div {{ background-color: #FFFFFF !important; border-color: rgba(244, 121, 32, 0.15) !important; }}
-        [data-theme="light"] input, [data-theme="light"] textarea {{ background-color: #FFFFFF !important; color: #0F1923 !important; border-color: rgba(244, 121, 32, 0.4) !important; }}
+        [data-theme="light"] input, [data-theme="light"] textarea {{
+            background-color: #F5F6FA !important;
+            color: #0F1923 !important;
+            border: 2px solid {COR_PRIMARIA} !important;
+            caret-color: {COR_PRIMARIA} !important;
+        }}
+        [data-theme="light"] input::placeholder, [data-theme="light"] textarea::placeholder {{
+            color: #555555 !important;
+            opacity: 0.85 !important;
+        }}
+        [data-theme="light"] [data-testid="stSidebar"] {{
+            border-right: 3px solid {COR_PRIMARIA} !important;
+        }}
     </style>
     """, unsafe_allow_html=True)

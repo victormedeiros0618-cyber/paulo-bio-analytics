@@ -279,18 +279,29 @@ if menu == "Nova Análise":
             estado = "pending"
             icon = num
 
+        aria_label_step = (
+            f"Passo {int(num)+1}: {label} — concluído" if estado == "done"
+            else f"Passo {int(num)+1}: {label} — em andamento" if estado == "active"
+            else f"Passo {int(num)+1}: {label} — não iniciado"
+        )
+        aria_current = 'aria-current="step"' if estado == "active" else ""
         items_html += f"""
-        <div class="step-item">
-            <div class="step-circle {estado}">{icon}</div>
-            <span class="step-label {estado}">{label}</span>
-        </div>"""
+        <li class="step-item" role="listitem">
+            <div class="step-circle {estado}" aria-label="{aria_label_step}" aria-hidden="true">{icon}</div>
+            <span class="step-label {estado}" {aria_current}>{label}</span>
+        </li>"""
 
         # Linha conectora entre passos
         if i < len(PASSOS) - 1:
             conn_estado = "done" if i < step_atual else "pending"
-            items_html += f'<div class="step-connector {conn_estado}"></div>'
+            items_html += f'<div class="step-connector {conn_estado}" aria-hidden="true"></div>'
 
-    st.markdown(f'<div class="stepper">{items_html}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<ol class="stepper" role="list" '
+        f'aria-label="Progresso da análise — Passo {step_atual + 1} de {len(PASSOS)}">'
+        f'{items_html}</ol>',
+        unsafe_allow_html=True,
+    )
 
     # ── CONTEXT HEADER (Passo 2 em diante) ───────────────────────
     if step_atual >= 2:

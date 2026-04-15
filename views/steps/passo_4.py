@@ -1,6 +1,6 @@
 import streamlit as st
 from services.ai_service import AIService
-from views.components.uicomponents import show_toast, ai_progress
+from views.components.uicomponents import show_toast, ai_progress, render_upload_status
 
 def show_passo_4():
     d = st.session_state.dados
@@ -19,12 +19,16 @@ def show_passo_4():
     with c1:
         with st.container(border=True):
             uploaded = st.file_uploader("Upload Lote de Certidões", type="pdf", accept_multiple_files=True, key="up4")
+            res_up4 = st.session_state.get("_res_up4")
+            if uploaded:
+                render_upload_status(uploaded, res_up4)
             if uploaded and st.button("Auditar Certidões"):
                 st.session_state.dados["checklist_docs"]["Passo 4 (Certidões)"] = [f.name for f in uploaded]
                 with ai_progress("certidoes", "Consolidando auditoria jurídica..."):
                     res = ai.auditar_certidoes(uploaded, d.get('empresa', ''), d.get('cnpj', ''))
                     if res:
                         st.session_state.dados.update(res)
+                        st.session_state["_res_up4"] = {f.name: True for f in uploaded}
                         show_toast("✅ Certidões auditadas!", "success")
                         st.rerun()
                     else:
@@ -44,5 +48,5 @@ def show_passo_4():
             with c_b2:
                 if st.button("Avançar"):
                     st.session_state.step = 5
-                    show_toast("Passo 5 - Contábil", "info")
+                    show_toast(":material/account_balance: Contábil — carregue o balanço e DRE", "info")
                     st.rerun()
